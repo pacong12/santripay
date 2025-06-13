@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      Role     @default(santri)
+  receiveAppNotifications Boolean @default(true)
+  receiveEmailNotifications Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  santri    Santri?
+  notifikasi Notifikasi[]
+
+  @@map("users")
+}
+
+model Santri {
+  id        String    @id @default(uuid())
+  userId    String    @unique @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  santriId  String    @unique @map("santri_id")
+  kelasId   String    @map("kelas_id")
+  kelas     Kelas     @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  phone     String?   @db.VarChar(15)
+  tagihan   Tagihan[]
+  transaksi Transaksi[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("santri")
+}
+
+model Kelas {
+  id        String   @id @default(uuid())
+  name      String
+  level     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  santri    Santri[]
+
+  @@map("kelas")
+}
+
+model Tagihan {
+  id             String        @id @default(uuid())
+  santriId       String        @map("santri_id")
+  jenisTagihanId String        @map("jenis_tagihan_id")
+  amount         BigInt
+  dueDate        DateTime      @map("due_date")
+  status         StatusTagihan @default(pending)
+  description    String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  santri         Santri        @relation(fields: [santriId], references: [id], onDelete: Cascade)
+  jenisTagihan   JenisTagihan  @relation(fields: [jenisTagihanId], references: [id])
+  transaksi      Transaksi?
+
+  @@map("tagihan")
+}
+
+model Transaksi {
+  id           String          @id @default(uuid())
+  santriId     String          @map("santri_id")
+  tagihanId    String?         @unique @map("tagihan_id")
+  amount       BigInt
+  status       StatusTransaksi @default(pending)
+  paymentDate  DateTime        @map("payment_date")
+  note         String?
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  santri       Santri          @relation(fields: [santriId], references: [id], onDelete: Cascade)
+  tagihan      Tagihan?        @relation(fields: [tagihanId], references: [id])
+
+  @@map("transaksi")
+}
+
+model JenisTagihan {
+  id          String    @id @default(uuid())
+  name        String
+  amount      BigInt?
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  tagihan     Tagihan[]
+
+  @@map("jenis_tagihan")
+}
+
+model Notifikasi {
+  id          String          @id @default(uuid())
+  userId      String          @map("user_id")
+  title       String
+  message     String
+  type        JenisNotifikasi
+  isRead      Boolean         @default(false) @map("is_read")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  user        User            @relation(fields: [userId], references: [id])
+
+  @@map("notifikasi")
+}
+
+enum Role {
+  admin
+  santri
+}
+
+enum StatusTagihan {
+  pending
+  paid
+  overdue
+}
+
+enum StatusTransaksi {
+  pending
+  approved
+  rejected
+}
+
+enum JenisNotifikasi {
+  tagihan_baru
+  tagihan_jatuh_tempo
+  pembayaran_diterima
+  pembayaran_ditolak
+  saldo_berkurang
+  saldo_bertambah
+  sistem
+}
