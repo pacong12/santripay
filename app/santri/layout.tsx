@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { SantriSidebar } from "@/components/santri/santri-sidebar";
+import { SantriNavBottom } from "@/components/santri/nav-bottom";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -38,8 +39,11 @@ export default function SantriLayout({
       <SidebarProvider>
         <SantriSidebar />
         <SidebarInset>
-          {children}
+          <main className="min-h-screen pb-16 md:pb-0">
+            {children}
+          </main>
         </SidebarInset>
+        <SantriNavBottom />
       </SidebarProvider>
     </QueryClientProvider>
   );

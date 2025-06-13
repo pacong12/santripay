@@ -32,6 +32,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -48,6 +49,7 @@ import { formatDistanceToNow } from "date-fns"
 import { id } from "date-fns/locale"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 
 interface Notifikasi {
   id: string
@@ -168,39 +170,45 @@ export function NavUser() {
     }
   }
 
+  if (!session?.user) {
+    return null;
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <SidebarMenuButton size="lg">
-                <Avatar className="size-8">
-                  <AvatarImage src="/avatars/admin.png" alt="Admin" />
-                  <AvatarFallback>AD</AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{session?.user?.name || "Admin"}</span>
-                  <span className="truncate text-xs">{session?.user?.email || "admin@example.com"}</span>
-                </div>
-              </SidebarMenuButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-              align="start"
-              side={isMobile ? "bottom" : "right"}
-              sideOffset={4}
-            >
-              <DropdownMenuLabel className="text-muted-foreground text-xs">
-                Akun
-              </DropdownMenuLabel>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton size="lg">
+              <Avatar className="size-8">
+                <AvatarImage src={session.user.image || ""} alt={session.user.name || ""} />
+                <AvatarFallback>
+                  {session.user.name?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">{session.user.name || "Admin"}</span>
+                  <span className="truncate text-xs">{session.user.email || "admin@example.com"}</span>
+              </div>
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            align="start"
+            side={isMobile ? "bottom" : "right"}
+            sideOffset={4}
+          >
+            <DropdownMenuLabel className="text-muted-foreground text-xs">
+              Akun
+            </DropdownMenuLabel>
               <DropdownMenuItem 
                 className="gap-2 p-2"
                 onClick={() => router.push("/admin/profil")}
               >
-                <User className="size-4" />
-                <span>Profil</span>
-              </DropdownMenuItem>
+              <User className="size-4" />
+              <span>Profil</span>
+            </DropdownMenuItem>
               <Dialog>
                 <DialogTrigger asChild>
                   <DropdownMenuItem 
@@ -209,8 +217,8 @@ export function NavUser() {
                       e.preventDefault();
                     }}
                   >
-                    <Settings className="size-4" />
-                    <span>Pengaturan</span>
+              <Settings className="size-4" />
+              <span>Pengaturan</span>
                   </DropdownMenuItem>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">
@@ -297,40 +305,40 @@ export function NavUser() {
                     {unreadCount}
                   </span>
                 )}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem 
-                    className="gap-2 p-2 text-red-600 focus:text-red-600 focus:bg-red-50"
-                    onSelect={(e) => {
-                      e.preventDefault();
-                    }}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <DropdownMenuItem 
+                  className="gap-2 p-2 text-red-600 focus:text-red-600 focus:bg-red-50"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                  }}
+                >
+              <LogOut className="size-4" />
+              <span>Keluar</span>
+            </DropdownMenuItem>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Apakah Anda yakin ingin keluar?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Anda akan keluar dari sistem. Anda perlu login kembali untuk mengakses sistem.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => signOut()}
+                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
                   >
-                    <LogOut className="size-4" />
-                    <span>Keluar</span>
-                  </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Apakah Anda yakin ingin keluar?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Anda akan keluar dari sistem. Anda perlu login kembali untuk mengakses sistem.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => signOut()}
-                      className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-                    >
-                      Keluar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                    Keluar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </DropdownMenuContent>
+        </DropdownMenu>
         </div>
       </SidebarMenuItem>
     </SidebarMenu>

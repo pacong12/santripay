@@ -2,38 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Menu, History } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { Menu } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { SantriSidebar } from "@/components/santri/santri-sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+
+import { useQuery } from "@tanstack/react-query";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface Transaksi {
   id: string;
   amount: number;
   status: string;
   paymentDate: string;
-  note?: string;
   tagihan: {
     jenisTagihan: {
       name: string;
@@ -41,31 +32,29 @@ interface Transaksi {
   };
 }
 
-export default function RiwayatPembayaranPage() {
+export default function RiwayatPembayaranSantriPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [transaksi, setTransaksi] = useState<Transaksi[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (session?.user) {
-      fetchTransaksi();
-    }
-  }, [session]);
-
-  const fetchTransaksi = async () => {
-    try {
+  const { data: transaksiResponse, isLoading } = useQuery({
+    queryKey: ["transaksi"],
+    queryFn: async () => {
       const response = await fetch("/api/transaksi/santri");
-      if (!response.ok) throw new Error("Gagal mengambil data transaksi");
-      const data = await response.json();
-      setTransaksi(data.data);
-    } catch (error) {
-      console.error("Error fetching transaksi:", error);
-      toast.error("Gagal mengambil data transaksi");
-    } finally {
+      if (!response.ok) {
+        throw new Error("Gagal mengambil data transaksi");
+      }
+      return response.json();
+    },
+  });
+
+  useEffect(() => {
+    if (!isLoading) {
       setLoading(false);
     }
-  };
+  }, [isLoading]);
+
+  const transaksi = transaksiResponse?.data || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -83,7 +72,7 @@ export default function RiwayatPembayaranPage() {
   const getStatusText = (status: string) => {
     switch (status) {
       case "pending":
-        return "Menunggu Konfirmasi";
+        return "Menunggu";
       case "approved":
         return "Disetujui";
       case "rejected":
@@ -92,6 +81,10 @@ export default function RiwayatPembayaranPage() {
         return status;
     }
   };
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Memuat data...</div>;
+  }
 
   return (
     <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6">
@@ -110,75 +103,55 @@ export default function RiwayatPembayaranPage() {
           </Sheet>
           <Separator orientation="vertical" className="h-8 hidden md:block" />
           <div className="flex flex-col">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink href="/santri/dashboard">Dashboard</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Riwayat Pembayaran</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-            <h2 className="text-3xl font-bold tracking-tight">Riwayat Pembayaran</h2>
+            
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Riwayat Pembayaran</h2>
           </div>
         </div>
-        <Button onClick={() => router.push("/santri/dashboard")}>
-          <History className="mr-2 h-4 w-4" />
-          Kembali ke Dashboard
-        </Button>
       </header>
-      <div className="flex-1 space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Jenis Tagihan</TableHead>
-                  <TableHead>Jumlah</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Catatan</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transaksi.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell>
-                      {new Date(t.paymentDate).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </TableCell>
-                    <TableCell>{t.tagihan.jenisTagihan.name}</TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat("id-ID", {
-                        style: "currency",
-                        currency: "IDR",
-                      }).format(Number(t.amount))}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(t.status)}>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Daftar Transaksi</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[calc(100vh-16rem)]">
+            {transaksi.length === 0 ? (
+              <div className="flex h-32 items-center justify-center">
+                <p className="text-sm text-muted-foreground">Tidak ada transaksi</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {transaksi.map((t: Transaksi) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between rounded-lg border p-4"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {t.tagihan.jenisTagihan.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(t.paymentDate).toLocaleDateString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        Rp {Number(t.amount).toLocaleString("id-ID")}
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={cn("mt-1", getStatusColor(t.status))}
+                      >
                         {getStatusText(t.status)}
                       </Badge>
-                    </TableCell>
-                    <TableCell>{t.note || "-"}</TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-                {transaksi.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      Belum ada riwayat pembayaran
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

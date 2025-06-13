@@ -97,24 +97,24 @@ export async function POST(req: Request) {
     const validatedData = transaksiSchema.parse(body);
 
     const transaksi = await prisma.transaksi.create({
-      data: {
+        data: {
         santriId: validatedData.santriId,
-        tagihanId: validatedData.tagihanId,
-        amount: validatedData.amount,
+          tagihanId: validatedData.tagihanId,
+          amount: validatedData.amount,
         paymentDate: new Date(validatedData.paymentDate),
         paymentMethod: validatedData.paymentMethod,
         status: validatedData.status,
         note: validatedData.note,
-      },
-      include: {
+        },
+        include: {
         santri: true,
-        tagihan: {
-          include: {
-            jenisTagihan: true,
+          tagihan: {
+            include: {
+              jenisTagihan: true,
+            },
           },
         },
-      },
-    });
+      });
 
     return NextResponse.json(transaksi);
   } catch (error) {

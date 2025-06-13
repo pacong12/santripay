@@ -25,17 +25,14 @@ import {
   Menu,
   Bell,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { SantriSidebar } from "@/components/santri/santri-sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
@@ -229,20 +226,14 @@ export default function DashboardSantriPage() {
           </Sheet>
           <Separator orientation="vertical" className="h-8 hidden md:block" />
           <div className="flex flex-col">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Dashboard</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+         
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h2>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="hidden md:flex">
                 <Bell className="mr-2 h-4 w-4" />
                 Notifikasi
                 {notifikasi.filter((n) => !n.isRead).length > 0 && (
@@ -252,56 +243,126 @@ export default function DashboardSantriPage() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-0" align="end">
-              <div className="flex items-center justify-between p-4 border-b">
+            <PopoverContent className="w-80" align="end">
+              <div className="flex items-center justify-between">
                 <h4 className="font-medium">Notifikasi</h4>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => router.push("/santri/notifikasi")}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    notifikasi.forEach((n) => {
+                      if (!n.isRead) {
+                        markAsRead.mutate({ id: n.id, isRead: true });
+                      }
+                    });
+                  }}
                 >
-                  Lihat Semua
+                  Tandai semua dibaca
                 </Button>
               </div>
-              <ScrollArea className="h-[300px]">
+              <ScrollArea className="h-72">
                 {notifikasi.length === 0 ? (
-                  <div className="flex h-full items-center justify-center py-10">
+                  <div className="flex h-72 items-center justify-center">
                     <p className="text-sm text-muted-foreground">Tidak ada notifikasi</p>
                   </div>
                 ) : (
-                  <div className="grid gap-1 p-2">
-                    {notifikasi.slice(0, 5).map((item) => (
+                  <div className="space-y-4 p-4">
+                    {notifikasi.map((n) => (
                       <div
-                        key={item.id}
+                        key={n.id}
                         className={cn(
-                          "flex cursor-pointer flex-col items-start gap-1 rounded-lg p-3 transition-colors hover:bg-accent hover:text-accent-foreground",
-                          !item.isRead && "bg-muted"
+                          "flex items-start gap-4 rounded-lg border p-3",
+                          !n.isRead && "bg-muted"
                         )}
-                        onClick={() => {
-                          if (!item.isRead) {
-                            markAsRead.mutate({ id: item.id, isRead: true });
-                          }
-                        }}
                       >
-                        <div className="flex w-full items-start justify-between gap-2">
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium leading-none">
-                              {item.title}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.message}
-                            </p>
-                          </div>
-                          {!item.isRead && (
-                            <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
-                          )}
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium leading-none">{n.title}</p>
+                          <p className="text-sm text-muted-foreground">{n.message}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(n.createdAt), {
+                              addSuffix: true,
+                              locale: id,
+                            })}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(item.createdAt), {
-                            addSuffix: true,
-                            locale: id,
-                          })}
-                        </p>
+                        {!n.isRead && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => markAsRead.mutate({ id: n.id, isRead: true })}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="md:hidden">
+                <Bell className="h-4 w-4" />
+                {notifikasi.filter((n) => !n.isRead).length > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {notifikasi.filter((n) => !n.isRead).length}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[calc(100vw-2rem)]" align="end">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Notifikasi</h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    notifikasi.forEach((n) => {
+                      if (!n.isRead) {
+                        markAsRead.mutate({ id: n.id, isRead: true });
+                      }
+                    });
+                  }}
+                >
+                  Tandai semua dibaca
+                </Button>
+              </div>
+              <ScrollArea className="h-[calc(100vh-12rem)]">
+                {notifikasi.length === 0 ? (
+                  <div className="flex h-32 items-center justify-center">
+                    <p className="text-sm text-muted-foreground">Tidak ada notifikasi</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 p-4">
+                    {notifikasi.map((n) => (
+                      <div
+                        key={n.id}
+                        className={cn(
+                          "flex items-start gap-4 rounded-lg border p-3",
+                          !n.isRead && "bg-muted"
+                        )}
+                      >
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium leading-none">{n.title}</p>
+                          <p className="text-sm text-muted-foreground">{n.message}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(n.createdAt), {
+                              addSuffix: true,
+                              locale: id,
+                            })}
+                          </p>
+                        </div>
+                        {!n.isRead && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => markAsRead.mutate({ id: n.id, isRead: true })}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -311,9 +372,8 @@ export default function DashboardSantriPage() {
           </Popover>
         </div>
       </header>
-      <div className="flex-1 space-y-6">
-        {/* Statistik Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Tagihan</CardTitle>
@@ -321,180 +381,139 @@ export default function DashboardSantriPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {new Intl.NumberFormat("id-ID", {
-                  style: "currency",
-                  currency: "IDR",
-                }).format(statistik.totalTagihan)}
+              Rp {statistik.totalTagihan.toLocaleString("id-ID")}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Dibayar</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500">
-                {new Intl.NumberFormat("id-ID", {
-                  style: "currency",
-                  currency: "IDR",
-                }).format(statistik.totalDibayar)}
+            <div className="text-2xl font-bold">
+              Rp {statistik.totalDibayar.toLocaleString("id-ID")}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Menunggu Pembayaran</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-500" />
+            <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-500">
-                {new Intl.NumberFormat("id-ID", {
-                  style: "currency",
-                  currency: "IDR",
-                }).format(statistik.totalMenunggu)}
+            <div className="text-2xl font-bold">
+              Rp {statistik.totalMenunggu.toLocaleString("id-ID")}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tagihan Terlambat</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-500" />
+            <CardTitle className="text-sm font-medium">Terlambat</CardTitle>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-500">
-                {new Intl.NumberFormat("id-ID", {
-                  style: "currency",
-                  currency: "IDR",
-                }).format(statistik.totalTerlambat)}
+            <div className="text-2xl font-bold">
+              Rp {statistik.totalTerlambat.toLocaleString("id-ID")}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Tagihan yang Perlu Dibayar */}
-          <Card className="col-span-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
             <CardHeader>
-              <CardTitle>Tagihan yang Perlu Dibayar</CardTitle>
+            <CardTitle>Tagihan Terbaru</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Jenis Tagihan</TableHead>
-                    <TableHead>Jumlah</TableHead>
-                    <TableHead>Jatuh Tempo</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tagihan
-                    .filter((t: Tagihan) => t.status !== "paid")
-                    .map((t: Tagihan) => (
-                      <TableRow key={t.id}>
-                        <TableCell>{t.jenisTagihan.name}</TableCell>
-                        <TableCell>
-                          {new Intl.NumberFormat("id-ID", {
-                            style: "currency",
-                            currency: "IDR",
-                          }).format(Number(t.amount))}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(t.dueDate).toLocaleDateString("id-ID", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(t.status)}>
+            <div className="space-y-4">
+              {tagihan.length === 0 ? (
+                <div className="flex h-32 items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Tidak ada tagihan</p>
+                </div>
+              ) : (
+                tagihan.slice(0, 5).map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between rounded-lg border p-4"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {t.jenisTagihan.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Jatuh tempo: {new Date(t.dueDate).toLocaleDateString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm font-medium">
+                          Rp {Number(t.amount).toLocaleString("id-ID")}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn("mt-1", getStatusColor(t.status))}
+                        >
                             {getStatusText(t.status)}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
+                      </div>
+                      {t.status === "pending" && (
                           <Button
-                            variant="outline"
                             size="sm"
-                            onClick={() => router.push("/santri/pembayaran")}
+                          onClick={() => router.push(`/santri/pembayaran?tagihan=${t.id}`)}
                           >
-                            <Wallet className="mr-2 h-4 w-4" />
                             Bayar
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  {tagihan.filter((t: Tagihan) => t.status !== "paid").length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center">
-                        Tidak ada tagihan yang perlu dibayar
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
             </CardContent>
           </Card>
-        </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-          {/* Riwayat Pembayaran Terakhir */}
-          <Card className="col-span-3">
+        <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Riwayat Pembayaran</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => router.push("/santri/riwayat-pembayaran")}>
-                  Lihat Semua
-                </Button>
-              </div>
+            <CardTitle>Transaksi Terbaru</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Jenis Tagihan</TableHead>
-                    <TableHead>Jumlah</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transaksi.slice(0, 5).map((t: Transaksi) => (
-                    <TableRow key={t.id}>
-                      <TableCell>
-                        {new Date(t.paymentDate).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </TableCell>
-                      <TableCell>{t.tagihan.jenisTagihan.name}</TableCell>
-                      <TableCell>
-                        {new Intl.NumberFormat("id-ID", {
-                          style: "currency",
-                          currency: "IDR",
-                        }).format(Number(t.amount))}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(t.status)}>
+            <div className="space-y-4">
+              {transaksi.length === 0 ? (
+                <div className="flex h-32 items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Tidak ada transaksi</p>
+                </div>
+              ) : (
+                transaksi.slice(0, 5).map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between rounded-lg border p-4"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {t.tagihan.jenisTagihan.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(t.paymentDate).toLocaleDateString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        Rp {Number(t.amount).toLocaleString("id-ID")}
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={cn("mt-1", getStatusColor(t.status))}
+                      >
                           {getStatusText(t.status)}
                         </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {transaksi.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center">
-                        Belum ada riwayat pembayaran
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
             </CardContent>
           </Card>
-        </div>
       </div>
     </div>
   );
