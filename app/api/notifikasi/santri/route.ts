@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { Role } from "@prisma/client"
 
 export async function GET() {
   try {
@@ -11,24 +12,23 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
+    if (session.user.role !== "santri") {
+      return new NextResponse("Forbidden", { status: 403 })
+    }
+
+    const notifikasi = await prisma.notifikasi.findMany({
       where: {
-        id: session.user.id,
+        role: Role.santri,
+        userId: session.user.id,
       },
-      select: {
-        receiveAppNotifications: true,
-        receiveEmailNotifications: true,
+      orderBy: {
+        createdAt: "desc",
       },
     })
 
-    if (!user) {
-      console.log("USER NOT FOUND:", session.user.id)
-      return new NextResponse("User not found", { status: 404 })
-    }
-
-    return NextResponse.json(user)
+    return NextResponse.json(notifikasi)
   } catch (error) {
-    console.error("[USER_PREFERENCES_GET]", error)
+    console.error("[NOTIFIKASI_SANTRI_GET]", error)
     return new NextResponse("Internal error", { status: 500 })
   }
 }
@@ -41,30 +41,31 @@ export async function PATCH(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const body = await req.json()
-    const { receiveAppNotifications, receiveEmailNotifications } = body
+    if (session.user.role !== "santri") {
+      return new NextResponse("Forbidden", { status: 403 })
+    }
 
-    if (typeof receiveAppNotifications !== "boolean" || typeof receiveEmailNotifications !== "boolean") {
+    const body = await req.json()
+    const { id, isRead } = body
+
+    if (!id || typeof isRead !== "boolean") {
       return new NextResponse("Invalid request body", { status: 400 })
     }
 
-    const user = await prisma.user.update({
+    const notifikasi = await prisma.notifikasi.update({
       where: {
-        id: session.user.id,
+        id,
+        userId: session.user.id,
+        role: Role.santri,
       },
       data: {
-        receiveAppNotifications,
-        receiveEmailNotifications,
-      },
-      select: {
-        receiveAppNotifications: true,
-        receiveEmailNotifications: true,
+        isRead,
       },
     })
 
-    return NextResponse.json(user)
+    return NextResponse.json(notifikasi)
   } catch (error) {
-    console.error("[USER_PREFERENCES_PATCH]", error)
+    console.error("[NOTIFIKASI_SANTRI_PATCH]", error)
     return new NextResponse("Internal error", { status: 500 })
   }
-}
+} 

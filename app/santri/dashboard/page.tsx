@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ModeToggle } from "@/components/ui/mode-toggle";
 import {
   Table,
   TableBody,
@@ -81,6 +82,11 @@ interface Notifikasi {
   type: string;
   isRead: boolean;
   createdAt: string;
+  tagihan?: {
+    id: string;
+    amount: number;
+    dueDate: string;
+  };
 }
 
 export default function DashboardSantriPage() {
@@ -205,6 +211,28 @@ export default function DashboardSantriPage() {
     }
   };
 
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'tagihan':
+        return <Receipt className="h-5 w-5 text-yellow-600" />;
+      case 'error':
+        return <AlertCircle className="h-5 w-5 text-red-600" />;
+      default:
+        return <Bell className="h-5 w-5 text-blue-600" />;
+    }
+  };
+
+  const getNotificationStyle = (type: string) => {
+    switch (type) {
+      case 'tagihan':
+        return 'bg-yellow-50 border-yellow-200';
+      case 'error':
+        return 'bg-red-50 border-red-200';
+      default:
+        return 'bg-blue-50 border-blue-200';
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Memuat data...</div>;
   }
@@ -226,14 +254,14 @@ export default function DashboardSantriPage() {
           </Sheet>
           <Separator orientation="vertical" className="h-8 hidden md:block" />
           <div className="flex flex-col">
-         
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h2>
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
+          <ModeToggle />
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="hidden md:flex">
+              <Button variant="outline" size="sm" className="hidden md:flex " >
                 <Bell className="mr-2 h-4 w-4" />
                 Notifikasi
                 {notifikasi.filter((n) => !n.isRead).length > 0 && (
@@ -244,7 +272,7 @@ export default function DashboardSantriPage() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between ">
                 <h4 className="font-medium">Notifikasi</h4>
                 <Button
                   variant="ghost"
@@ -267,33 +295,38 @@ export default function DashboardSantriPage() {
                   </div>
                 ) : (
                   <div className="space-y-4 p-4">
-                    {notifikasi.map((n) => (
+                    {notifikasi.map((item) => (
                       <div
-                        key={n.id}
+                        key={item.id}
                         className={cn(
-                          "flex items-start gap-4 rounded-lg border p-3",
-                          !n.isRead && "bg-muted"
+                          "flex cursor-pointer flex-col items-start gap-1 rounded-lg p-3 transition-colors hover:bg-accent hover:text-accent-foreground",
+                          !item.isRead && "bg-muted"
                         )}
+                        onClick={() => {
+                          if (!item.isRead) {
+                            markAsRead.mutate({ id: item.id, isRead: true });
+                          }
+                        }}
                       >
-                        <div className="flex-1 space-y-1">
-                          <p className="text-sm font-medium leading-none">{n.title}</p>
-                          <p className="text-sm text-muted-foreground">{n.message}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(n.createdAt), {
-                              addSuffix: true,
-                              locale: id,
-                            })}
-                          </p>
+                        <div className="flex w-full items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium leading-none">
+                              {item.title}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {item.message}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(item.createdAt), {
+                                addSuffix: true,
+                                locale: id,
+                              })}
+                            </p>
+                          </div>
+                          {!item.isRead && (
+                            <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
+                          )}
                         </div>
-                        {!n.isRead && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => markAsRead.mutate({ id: n.id, isRead: true })}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -336,33 +369,38 @@ export default function DashboardSantriPage() {
                   </div>
                 ) : (
                   <div className="space-y-4 p-4">
-                    {notifikasi.map((n) => (
+                    {notifikasi.map((item) => (
                       <div
-                        key={n.id}
+                        key={item.id}
                         className={cn(
-                          "flex items-start gap-4 rounded-lg border p-3",
-                          !n.isRead && "bg-muted"
+                          "flex cursor-pointer flex-col items-start gap-1 rounded-lg p-3 transition-colors hover:bg-accent hover:text-accent-foreground",
+                          !item.isRead && "bg-muted"
                         )}
+                        onClick={() => {
+                          if (!item.isRead) {
+                            markAsRead.mutate({ id: item.id, isRead: true });
+                          }
+                        }}
                       >
-                        <div className="flex-1 space-y-1">
-                          <p className="text-sm font-medium leading-none">{n.title}</p>
-                          <p className="text-sm text-muted-foreground">{n.message}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(n.createdAt), {
-                              addSuffix: true,
-                              locale: id,
-                            })}
-                          </p>
+                        <div className="flex w-full items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium leading-none">
+                              {item.title}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {item.message}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(item.createdAt), {
+                                addSuffix: true,
+                                locale: id,
+                              })}
+                            </p>
+                          </div>
+                          {!item.isRead && (
+                            <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
+                          )}
                         </div>
-                        {!n.isRead && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => markAsRead.mutate({ id: n.id, isRead: true })}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        )}
                       </div>
                     ))}
                   </div>

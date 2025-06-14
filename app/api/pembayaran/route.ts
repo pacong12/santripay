@@ -3,12 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { JenisNotifikasi, Tagihan, Role, Prisma } from "@prisma/client";
 
 const pembayaranSchema = z.object({
   tagihanId: z.string().uuid("Pilih tagihan yang valid"),
   amount: z.coerce.number().min(0, "Jumlah harus lebih dari atau sama dengan 0"),
-  paymentMethod: z.enum(["transfer", "cash", "qris"]),
-  paymentProof: z.string().optional(), // URL bukti pembayaran
   note: z.string().optional(),
 });
 
@@ -52,7 +51,6 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-
     const validatedData = pembayaranSchema.parse(body);
 
     // Cek tagihan
@@ -92,14 +90,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Cek apakah sudah ada transaksi untuk tagihan ini
-    const existingTransaksi = await prisma.transaksi.findUnique({
-      where: { tagihanId: validatedData.tagihanId },
+    // Cek apakah sudah ada transaksi yang disetujui untuk tagihan ini
+    const existingTransaksi = await prisma.transaksi.findFirst({
+      where: {
+        tagihanId: validatedData.tagihanId,
+        santriId: tagihan.santriId,
+        status: "approved"
+      }
     });
 
     if (existingTransaksi) {
       return NextResponse.json(
-        { message: "Tagihan ini sudah memiliki transaksi" },
+        { message: "Tagihan ini sudah dibayar dan disetujui" },
         { status: 400 }
       );
     }
@@ -112,69 +114,120 @@ export async function POST(request: Request) {
       );
     }
 
-    // Buat transaksi dan update status tagihan dalam satu transaksi
-    const result = await prisma.$transaction(async (tx) => {
-      // Buat transaksi
-      const transaksi = await tx.transaksi.create({
-        data: {
-          tagihanId: validatedData.tagihanId,
-          santriId: tagihan.santriId,
-          amount: validatedData.amount,
-          paymentDate: new Date(),
-          note: validatedData.note,
-          status: "pending",
-        },
-        include: {
-          santri: {
-            include: {
-              kelas: true,
-            },
-          },
-          tagihan: {
-            include: {
-              jenisTagihan: true,
-            },
-          },
-        },
-      });
-
-      // Buat notifikasi untuk admin
-      // Dapatkan semua user dengan role 'admin'
-      const adminUsers = await tx.user.findMany({
-        where: {
-          role: "admin",
-          receiveAppNotifications: true, // Hanya kirim ke admin yang mengaktifkan notifikasi aplikasi
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      // Buat notifikasi untuk setiap admin
-      await Promise.all(adminUsers.map(async (adminUser) => {
-        await tx.notifikasi.create({
+    try {
+      // Buat transaksi baru
+      const result = await prisma.$transaction(async (tx) => {
+        // Buat transaksi
+        const transaksi = await tx.transaksi.create({
           data: {
-            userId: adminUser.id,
-            title: "Pembayaran Baru",
-            message: `Pembayaran baru dari ${tagihan.santri.name} untuk ${tagihan.jenisTagihan.name} sebesar ${new Intl.NumberFormat("id-ID", {
-              style: "currency",
-              currency: "IDR",
-            }).format(Number(validatedData.amount))}`,
-            type: "pembayaran_diterima",
+            tagihanId: validatedData.tagihanId,
+            santriId: tagihan.santriId,
+            amount: BigInt(validatedData.amount),
+            paymentDate: new Date(),
+            note: validatedData.note,
+            status: "pending",
+          },
+          include: {
+            santri: {
+              include: {
+                kelas: true,
+                user: true,
+              },
+            },
+            tagihan: {
+              include: {
+                jenisTagihan: true,
+              },
+            },
           },
         });
-      }));
 
-      return transaksi;
-    });
+        // Buat notifikasi untuk santri
+        if (transaksi.santri.user) {
+          await tx.notifikasi.create({
+            data: {
+              userId: transaksi.santri.user.id,
+              title: "Pembayaran Dibuat",
+              message: `Pembayaran Anda untuk ${tagihan.jenisTagihan.name} sebesar Rp ${Number(validatedData.amount).toLocaleString('id-ID')} telah dibuat dan menunggu konfirmasi admin.`,
+              type: JenisNotifikasi.tagihan_baru
+            },
+          });
+        }
 
-    const serializedResult = serializeBigInt(result);
+        // Buat notifikasi untuk admin
+        const adminUsers = await tx.user.findMany({
+          where: {
+            role: "admin",
+            receiveAppNotifications: true,
+          },
+          select: {
+            id: true,
+          },
+        });
 
-    return NextResponse.json({
-      message: "Pembayaran berhasil dibuat dan menunggu konfirmasi admin",
-      data: serializedResult,
-    });
+        await Promise.all(adminUsers.map(async (adminUser) => {
+          await tx.notifikasi.create({
+            data: {
+              userId: adminUser.id,
+              title: "Pembayaran Menunggu Konfirmasi",
+              message: `Pembayaran baru dari ${tagihan.santri.name} untuk ${tagihan.jenisTagihan.name} sebesar Rp ${Number(validatedData.amount).toLocaleString('id-ID')} menunggu konfirmasi Anda.`,
+              type: JenisNotifikasi.sistem
+            },
+          });
+        }));
+
+        return transaksi;
+      });
+
+      // Convert BigInt to number for JSON serialization
+      const serializedResult = {
+        ...result,
+        amount: Number(result.amount),
+        paymentDate: result.paymentDate.toISOString(),
+        createdAt: result.createdAt.toISOString(),
+        updatedAt: result.updatedAt.toISOString(),
+        tagihan: result.tagihan ? {
+          ...result.tagihan,
+          amount: Number(result.tagihan.amount),
+          dueDate: result.tagihan.dueDate.toISOString(),
+          createdAt: result.tagihan.createdAt.toISOString(),
+          updatedAt: result.tagihan.updatedAt.toISOString(),
+          jenisTagihan: result.tagihan.jenisTagihan ? {
+            ...result.tagihan.jenisTagihan,
+            amount: result.tagihan.jenisTagihan.amount ? Number(result.tagihan.jenisTagihan.amount) : null,
+            createdAt: result.tagihan.jenisTagihan.createdAt.toISOString(),
+            updatedAt: result.tagihan.jenisTagihan.updatedAt.toISOString(),
+          } : null,
+        } : null,
+        santri: {
+          ...result.santri,
+          createdAt: result.santri.createdAt.toISOString(),
+          updatedAt: result.santri.updatedAt.toISOString(),
+          kelas: result.santri.kelas ? {
+            ...result.santri.kelas,
+            createdAt: result.santri.kelas.createdAt.toISOString(),
+            updatedAt: result.santri.kelas.updatedAt.toISOString(),
+          } : null,
+        }
+      };
+
+      return NextResponse.json({
+        message: "Pembayaran berhasil dibuat dan menunggu konfirmasi admin",
+        data: serializedResult,
+      });
+    } catch (error) {
+      console.error("[PAYMENT_CREATE]", error);
+      // Jika error karena unique constraint, berarti ada transaksi yang belum terdeteksi
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return NextResponse.json(
+          { message: "Tagihan ini sudah memiliki transaksi yang menunggu konfirmasi" },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
   } catch (error) {
+    console.error("[PAYMENT_POST]", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { message: "Validation error", errors: error.errors },
@@ -218,7 +271,29 @@ export async function GET() {
       },
     });
 
-    const serializedPembayaran = serializeBigInt(pembayaran);
+    // Fungsi untuk mengkonversi BigInt dan Date ke string
+    const serializeValue = (value: any): any => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      if (Array.isArray(value)) {
+        return value.map(serializeValue);
+      }
+      if (value && typeof value === 'object') {
+        const result: any = {};
+        for (const key in value) {
+          result[key] = serializeValue(value[key]);
+        }
+        return result;
+      }
+      return value;
+    };
+
+    const serializedPembayaran = serializeValue(pembayaran);
+
     return NextResponse.json(serializedPembayaran);
   } catch (error) {
     console.error("[PAYMENT_GET]", error);

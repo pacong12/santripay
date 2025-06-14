@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
-import { JenisNotifikasi } from "@prisma/client"
+import { JenisNotifikasi, Role } from "@prisma/client"
 
 // Fungsi untuk mengkonversi BigInt ke string
 function serializeBigInt(data: any): any {
@@ -78,6 +78,10 @@ export async function POST(
         throw new Error("Data santri tidak lengkap")
       }
 
+      if (!transaksi.tagihanId) {
+        throw new Error("ID Tagihan tidak ditemukan")
+      }
+
       // Update status tagihan
       await tx.tagihan.update({
         where: {
@@ -93,12 +97,19 @@ export async function POST(
         data: {
           userId: transaksi.santri.user.id,
           title: "Pembayaran Disetujui",
-          message: `Pembayaran Anda untuk ${transaksi.tagihan.jenisTagihan.name} sebesar ${new Intl.NumberFormat("id-ID", {
-            style: "currency",
-            currency: "IDR",
-          }).format(Number(transaksi.amount))} telah disetujui.`,
-          type: "pembayaran_diterima" as JenisNotifikasi,
-        },
+          message: `Pembayaran Anda untuk ${transaksi.tagihan.jenisTagihan.name} sebesar Rp ${Number(transaksi.amount).toLocaleString('id-ID')} telah disetujui.`,
+          type: JenisNotifikasi.pembayaran_diterima
+        }
+      })
+
+      // Buat notifikasi untuk admin
+      await tx.notifikasi.create({
+        data: {
+          userId: session.user.id,
+          title: "Pembayaran Disetujui",
+          message: `Pembayaran dari ${transaksi.santri.name} sebesar Rp ${Number(transaksi.amount).toLocaleString('id-ID')} telah disetujui.`,
+          type: JenisNotifikasi.sistem
+        }
       })
 
       return transaksi

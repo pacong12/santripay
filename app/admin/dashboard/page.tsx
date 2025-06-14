@@ -26,6 +26,7 @@ import {
   Bell,
   Users,
   Building2,
+  Loader2,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "@/components/admin/app-sidebar";
@@ -35,8 +36,8 @@ import {
   BreadcrumbList,
   BreadcrumbItem,
   BreadcrumbLink,
-  BreadcrumbSeparator,
   BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -109,9 +110,9 @@ export default function DashboardAdminPage() {
   });
 
   const { data: notifikasi = [], isLoading: isLoadingNotifikasi } = useQuery<Notifikasi[]>({
-    queryKey: ["notifikasi"],
+    queryKey: ["notifikasi-admin"],
     queryFn: async () => {
-      const response = await fetch("/api/notifikasi");
+      const response = await fetch("/api/notifikasi/admin");
       if (!response.ok) {
         throw new Error("Gagal mengambil notifikasi");
       }
@@ -165,12 +166,19 @@ export default function DashboardAdminPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Memuat data...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Memuat data...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6">
-      <header className="flex h-14 shrink-0 items-center justify-between">
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
         <div className="flex items-center gap-2">
           <Sheet>
             <SheetTrigger asChild>
@@ -198,14 +206,23 @@ export default function DashboardAdminPage() {
         <div className="flex items-center gap-4">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Bell className="mr-2 h-4 w-4" />
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="relative border-2 border-border transition-all duration-200 hover:border-primary"
+              >
+                <div className="relative">
+                  <Bell className="mr-2 h-4 w-4" />
+                  {notifikasi.filter((n) => !n.isRead).length > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="absolute -top-2 -right-2 h-4 min-w-4 px-1 font-medium"
+                    >
+                      {notifikasi.filter((n) => !n.isRead).length}
+                    </Badge>
+                  )}
+                </div>
                 Notifikasi
-                {notifikasi.filter((n) => !n.isRead).length > 0 && (
-                  <Badge variant="destructive" className="ml-2">
-                    {notifikasi.filter((n) => !n.isRead).length}
-                  </Badge>
-                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80 p-0" align="end">
@@ -233,6 +250,7 @@ export default function DashboardAdminPage() {
                           "flex cursor-pointer flex-col items-start gap-1 rounded-lg p-3 transition-colors hover:bg-accent hover:text-accent-foreground",
                           !item.isRead && "bg-muted"
                         )}
+                        onClick={() => router.push("/admin/notifikasi")}
                       >
                         <div className="flex w-full items-start justify-between gap-2">
                           <div className="space-y-1">
@@ -265,7 +283,7 @@ export default function DashboardAdminPage() {
 
       <div className="flex-1 space-y-6">
         {/* Statistik Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Santri</CardTitle>
@@ -273,6 +291,9 @@ export default function DashboardAdminPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{statistik.totalSantri}</div>
+              <p className="text-xs text-muted-foreground">
+                Jumlah santri aktif
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -287,6 +308,9 @@ export default function DashboardAdminPage() {
                   currency: "IDR",
                 }).format(statistik.totalTagihan)}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Total tagihan keseluruhan
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -301,6 +325,9 @@ export default function DashboardAdminPage() {
                   currency: "IDR",
                 }).format(statistik.totalDibayar)}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Tagihan yang sudah dibayar
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -315,6 +342,9 @@ export default function DashboardAdminPage() {
                   currency: "IDR",
                 }).format(statistik.totalMenunggu)}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Tagihan yang menunggu pembayaran
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -329,6 +359,9 @@ export default function DashboardAdminPage() {
                   currency: "IDR",
                 }).format(statistik.totalTerlambat)}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Tagihan yang sudah jatuh tempo
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -344,50 +377,53 @@ export default function DashboardAdminPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Santri</TableHead>
-                  <TableHead>Jenis Tagihan</TableHead>
-                  <TableHead>Jumlah</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transaksi.slice(0, 5).map((t: Transaksi) => (
-                  <TableRow key={t.id}>
-                    <TableCell>
-                      {new Date(t.paymentDate).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </TableCell>
-                    <TableCell>{t.santri.name}</TableCell>
-                    <TableCell>{t.tagihan.jenisTagihan.name}</TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat("id-ID", {
-                        style: "currency",
-                        currency: "IDR",
-                      }).format(Number(t.amount))}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(t.status)}>
-                        {getStatusText(t.status)}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {transaksi.length === 0 && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      Belum ada transaksi
-                    </TableCell>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Santri</TableHead>
+                    <TableHead>Jenis Tagihan</TableHead>
+                    <TableHead>Jumlah</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {transaksi.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center">
+                        Belum ada transaksi
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    transaksi.slice(0, 5).map((t: Transaksi) => (
+                      <TableRow key={t.id}>
+                        <TableCell>
+                          {new Date(t.paymentDate).toLocaleDateString("id-ID", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </TableCell>
+                        <TableCell>{t.santri.name}</TableCell>
+                        <TableCell>{t.tagihan.jenisTagihan.name}</TableCell>
+                        <TableCell>
+                          {new Intl.NumberFormat("id-ID", {
+                            style: "currency",
+                            currency: "IDR",
+                          }).format(Number(t.amount))}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(t.status)}>
+                            {getStatusText(t.status)}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

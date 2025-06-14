@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, ArrowLeft, Menu } from "lucide-react"
+import { Bell, ArrowLeft, Menu, CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import {
@@ -38,6 +38,7 @@ import { AppSidebar } from "@/components/admin/app-sidebar"
 import Link from "next/link"
 import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
+import { Badge } from "@/components/ui/badge"
 
 interface Notifikasi {
   id: string
@@ -46,6 +47,14 @@ interface Notifikasi {
   type: string
   isRead: boolean
   createdAt: string
+  tagihan?: {
+    id: string
+    amount: number
+    dueDate: string
+    jenisTagihan: {
+      name: string
+    }
+  }
 }
 
 export default function NotifikasiPage() {
@@ -53,7 +62,7 @@ export default function NotifikasiPage() {
   const queryClient = useQueryClient()
   const router = useRouter()
 
-  const { data: notifikasi, isLoading } = useQuery<Notifikasi[]>({
+  const { data: notifikasi = [], isLoading } = useQuery<Notifikasi[]>({
     queryKey: ["notifikasi-admin"],
     queryFn: async () => {
       const response = await fetch("/api/notifikasi/admin", {
@@ -93,8 +102,8 @@ export default function NotifikasiPage() {
   const unreadCount = notifikasi?.filter((n) => !n.isRead).length || 0
 
   return (
-    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6">
-      <header className="flex h-14 shrink-0 items-center justify-between">
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
         <div className="flex items-center gap-2">
           <Sheet>
             <SheetTrigger asChild>
@@ -120,65 +129,101 @@ export default function NotifikasiPage() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            <h2 className="text-3xl font-bold tracking-tight">Notifikasi</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-3xl font-bold tracking-tight">Notifikasi</h2>
+              {unreadCount > 0 && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  {unreadCount} Baru
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
-        <Button onClick={() => router.push("/admin/dashboard")}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Kembali ke Dashboard
-        </Button>
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                notifikasi.forEach((n) => {
+                  if (!n.isRead) {
+                    markAsRead.mutate({ id: n.id, isRead: true })
+                  }
+                })
+              }}
+            >
+              Tandai semua dibaca
+            </Button>
+          )}
+          <Button onClick={() => router.push("/admin/dashboard")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Kembali ke Dashboard
+          </Button>
+        </div>
       </header>
       
       <div className="flex-1 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Notifikasi Anda</CardTitle>
-            <CardDescription>Kelola dan lihat semua notifikasi di sini.</CardDescription>
+            <CardTitle>Daftar Notifikasi</CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[calc(100vh-250px)]">
+            <ScrollArea className="h-[calc(100vh-16rem)]">
               {isLoading ? (
                 <div className="flex h-full items-center justify-center py-10">
                   <p className="text-sm text-muted-foreground">Memuat notifikasi...</p>
                 </div>
-              ) : notifikasi?.length === 0 ? (
+              ) : notifikasi.length === 0 ? (
                 <div className="flex h-full items-center justify-center py-10">
                   <p className="text-sm text-muted-foreground">Tidak ada notifikasi</p>
                 </div>
               ) : (
-                <div className="grid gap-1 p-2">
-                  {notifikasi?.map((item) => (
+                <div className="space-y-4">
+                  {notifikasi.map((item) => (
                     <div
                       key={item.id}
                       className={cn(
-                        "flex cursor-pointer flex-col items-start gap-1 rounded-lg p-3 transition-colors hover:bg-accent hover:text-accent-foreground",
+                        "flex items-start gap-4 rounded-lg border p-4",
                         !item.isRead && "bg-muted"
                       )}
-                      onClick={() => {
-                        if (!item.isRead) {
-                          markAsRead.mutate({ id: item.id, isRead: true })
-                        }
-                      }}
                     >
-                      <div className="flex w-full items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium leading-none">
-                            {item.title}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {item.message}
-                          </p>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium leading-none">{item.title}</p>
+                            <p className="text-sm text-muted-foreground">{item.message}</p>
+                          </div>
+                          {!item.isRead && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => markAsRead.mutate({ id: item.id, isRead: true })}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
-                        {!item.isRead && (
-                          <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
+                        {item.tagihan && (
+                          <div className="mt-2 p-2 bg-white rounded-md border">
+                            <p className="text-sm font-medium">Detail Tagihan:</p>
+                            <p className="text-sm text-muted-foreground">
+                              Jenis: {item.tagihan.jenisTagihan.name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Jumlah: Rp {Number(item.tagihan.amount).toLocaleString("id-ID")}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Jatuh Tempo: {new Date(item.tagihan.dueDate).toLocaleDateString("id-ID")}
+                            </p>
+                          </div>
                         )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(item.createdAt), {
+                            addSuffix: true,
+                            locale: id,
+                          })}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(item.createdAt), {
-                          addSuffix: true,
-                          locale: id,
-                        })}
-                      </p>
                     </div>
                   ))}
                 </div>

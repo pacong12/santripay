@@ -85,6 +85,10 @@ export async function POST(
         throw new Error("Data santri tidak lengkap")
       }
 
+      if (!transaksi.tagihanId) {
+        throw new Error("ID Tagihan tidak ditemukan")
+      }
+
       // Update status tagihan
       await tx.tagihan.update({
         where: {
@@ -104,7 +108,7 @@ export async function POST(
             style: "currency",
             currency: "IDR",
           }).format(Number(transaksi.amount))} telah ditolak. Alasan: ${note}`,
-          type: "pembayaran_ditolak" as JenisNotifikasi,
+          type: JenisNotifikasi.pembayaran_ditolak
         },
       })
 
@@ -112,7 +116,10 @@ export async function POST(
     })
 
     const serializedResult = serializeBigInt(result)
-    return NextResponse.json(serializedResult)
+    return NextResponse.json({
+      message: "Pembayaran berhasil ditolak",
+      data: serializedResult,
+    })
   } catch (error) {
     console.error("[PAYMENT_REJECT]", error)
     if (error instanceof Error) {

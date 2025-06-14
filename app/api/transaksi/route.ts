@@ -6,11 +6,11 @@ import { z } from "zod";
 import { StatusTransaksi } from "@prisma/client";
 
 const transaksiSchema = z.object({
-  santriId: z.string(),
-  tagihanId: z.string(),
-  amount: z.number().positive(),
-  paymentDate: z.string(),
-  paymentMethod: z.enum(["cash", "transfer"]),
+  santriId: z.string().uuid("ID Santri tidak valid"),
+  tagihanId: z.string().uuid("ID Tagihan tidak valid"),
+  amount: z.number().positive("Jumlah harus lebih dari 0"),
+  paymentDate: z.string().min(1, "Tanggal pembayaran harus diisi"),
+  paymentMethod: z.enum(["cash", "transfer", "qris"]),
   status: z.enum(["pending", "approved", "rejected"]),
   note: z.string().optional(),
 });
@@ -65,20 +65,34 @@ export async function GET() {
     }
 
     const transaksi = await prisma.transaksi.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
       include: {
-        santri: true,
+        santri: {
+          select: {
+            name: true,
+          },
+        },
         tagihan: {
-          include: {
-            jenisTagihan: true,
+          select: {
+            jenisTagihan: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
-    return NextResponse.json(transaksi);
+    // Konversi BigInt ke string
+    const serializedTransaksi = transaksi.map(t => ({
+      ...t,
+      amount: t.amount.toString(),
+    }));
+
+    return NextResponse.json(serializedTransaksi);
   } catch (error) {
     console.error("[TRANSACTION_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
@@ -97,29 +111,47 @@ export async function POST(req: Request) {
     const validatedData = transaksiSchema.parse(body);
 
     const transaksi = await prisma.transaksi.create({
-        data: {
+      data: {
         santriId: validatedData.santriId,
-          tagihanId: validatedData.tagihanId,
-          amount: validatedData.amount,
+        tagihanId: validatedData.tagihanId,
+        amount: BigInt(validatedData.amount),
         paymentDate: new Date(validatedData.paymentDate),
         paymentMethod: validatedData.paymentMethod,
         status: validatedData.status,
         note: validatedData.note,
-        },
-        include: {
-        santri: true,
-          tagihan: {
-            include: {
-              jenisTagihan: true,
-            },
+      },
+      include: {
+        santri: {
+          include: {
+            user: true,
+            kelas: true,
           },
         },
-      });
+        tagihan: {
+          include: {
+            jenisTagihan: true,
+          },
+        },
+      },
+    });
 
-    return NextResponse.json(transaksi);
+    const serializedTransaksi = serializeBigInt(transaksi);
+    return NextResponse.json({
+      message: "Transaksi berhasil dibuat",
+      data: serializedTransaksi,
+    });
   } catch (error) {
     console.error("[TRANSACTION_POST]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { message: "Validation error", errors: error.errors },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 

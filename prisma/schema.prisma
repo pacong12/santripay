@@ -59,19 +59,20 @@ model Kelas {
 }
 
 model Tagihan {
-  id             String        @id @default(uuid())
-  santriId       String        @map("santri_id")
-  jenisTagihanId String        @map("jenis_tagihan_id")
-  amount         BigInt
-  dueDate        DateTime      @map("due_date")
-  status         StatusTagihan @default(pending)
-  description    String?
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  id            String          @id @default(uuid())
+  santriId      String          @map("santri_id")
+  jenisTagihanId String         @map("jenis_tagihan_id")
+  amount        BigInt
+  status        StatusTagihan   @default(pending)
+  dueDate       DateTime        @map("due_date")
+  description   String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
 
-  santri         Santri        @relation(fields: [santriId], references: [id], onDelete: Cascade)
-  jenisTagihan   JenisTagihan  @relation(fields: [jenisTagihanId], references: [id])
-  transaksi      Transaksi?
+  santri        Santri          @relation(fields: [santriId], references: [id])
+  jenisTagihan  JenisTagihan    @relation(fields: [jenisTagihanId], references: [id])
+  transaksi     Transaksi[]
+  notifikasi    Notifikasi[]
 
   @@map("tagihan")
 }
@@ -79,7 +80,7 @@ model Tagihan {
 model Transaksi {
   id           String          @id @default(uuid())
   santriId     String          @map("santri_id")
-  tagihanId    String?         @unique @map("tagihan_id")
+  tagihanId    String?         @map("tagihan_id")
   amount       BigInt
   status       StatusTransaksi @default(pending)
   paymentDate  DateTime        @map("payment_date")
@@ -113,8 +114,11 @@ model Notifikasi {
   message     String
   type        JenisNotifikasi
   isRead      Boolean         @default(false) @map("is_read")
+  role        Role            @default(santri)
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
+  tagihanId   String?         @map("tagihan_id")
+  tagihan     Tagihan?        @relation(fields: [tagihanId], references: [id])
 
   user        User            @relation(fields: [userId], references: [id])
 
@@ -139,11 +143,18 @@ enum StatusTransaksi {
 }
 
 enum JenisNotifikasi {
+  // Notifikasi Santri
   tagihan_baru
   tagihan_jatuh_tempo
   pembayaran_diterima
   pembayaran_ditolak
   saldo_berkurang
   saldo_bertambah
+  
+  // Notifikasi Admin
+  pembayaran_baru
+  pembayaran_menunggu
+  pembayaran_ditolak_admin
+  tagihan_jatuh_tempo_admin
   sistem
 }

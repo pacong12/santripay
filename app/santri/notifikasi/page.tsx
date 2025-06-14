@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, Menu } from "lucide-react"
+import { CheckCircle2, Menu, Bell, AlertCircle, Receipt } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -28,6 +28,11 @@ interface Notifikasi {
   type: string
   isRead: boolean
   createdAt: string
+  tagihan?: {
+    id: string
+    amount: number
+    dueDate: string
+  }
 }
 
 export default function NotifikasiSantriPage() {
@@ -46,6 +51,8 @@ export default function NotifikasiSantriPage() {
       return response.json()
     },
   })
+
+  const unreadCount = notifikasi.filter(n => !n.isRead).length
 
   useEffect(() => {
     if (!isLoading) {
@@ -76,6 +83,28 @@ export default function NotifikasiSantriPage() {
     },
   })
 
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'tagihan':
+        return <Receipt className="h-5 w-5 text-yellow-600" />
+      case 'error':
+        return <AlertCircle className="h-5 w-5 text-red-600" />
+      default:
+        return <Bell className="h-5 w-5 text-blue-600" />
+    }
+  }
+
+  const getNotificationStyle = (type: string) => {
+    switch (type) {
+      case 'tagihan':
+        return 'bg-yellow-50 border-yellow-200'
+      case 'error':
+        return 'bg-red-50 border-red-200'
+      default:
+        return 'bg-blue-50 border-blue-200'
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Memuat data...</div>
   }
@@ -96,24 +125,31 @@ export default function NotifikasiSantriPage() {
             </SheetContent>
           </Sheet>
           <Separator orientation="vertical" className="h-8 hidden md:block" />
-          <div className="flex flex-col">
-            
+          <div className="flex items-center gap-2">
+            <Bell className="h-6 w-6" />
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Notifikasi</h2>
+            {unreadCount > 0 && (
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                {unreadCount} Baru
+              </Badge>
+            )}
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            notifikasi.forEach((n) => {
-              if (!n.isRead) {
-                markAsRead.mutate({ id: n.id, isRead: true })
-              }
-            })
-          }}
-        >
-          Tandai semua dibaca
-        </Button>
+        {unreadCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              notifikasi.forEach((n) => {
+                if (!n.isRead) {
+                  markAsRead.mutate({ id: n.id, isRead: true })
+                }
+              })
+            }}
+          >
+            Tandai semua dibaca
+          </Button>
+        )}
       </header>
 
       <Card>
@@ -133,12 +169,34 @@ export default function NotifikasiSantriPage() {
                     key={n.id}
                     className={cn(
                       "flex items-start gap-4 rounded-lg border p-4",
-                      !n.isRead && "bg-muted"
+                      !n.isRead && "bg-muted",
+                      getNotificationStyle(n.type)
                     )}
                   >
+                    <div className="mt-1">
+                      {getNotificationIcon(n.type)}
+                    </div>
                     <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">{n.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium leading-none">{n.title}</p>
+                        {!n.isRead && (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                            Baru
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">{n.message}</p>
+                      {n.tagihan && (
+                        <div className="mt-2 p-2 bg-white rounded-md border">
+                          <p className="text-sm font-medium">Detail Tagihan:</p>
+                          <p className="text-sm text-muted-foreground">
+                            Jumlah: Rp {Number(n.tagihan.amount).toLocaleString("id-ID")}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Jatuh Tempo: {new Date(n.tagihan.dueDate).toLocaleDateString("id-ID")}
+                          </p>
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(n.createdAt), {
                           addSuffix: true,

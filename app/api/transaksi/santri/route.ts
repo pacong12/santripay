@@ -37,7 +37,10 @@ export async function GET() {
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const transaksi = await prisma.transaksi.findMany({
@@ -51,11 +54,7 @@ export async function GET() {
       include: {
         tagihan: {
           include: {
-            jenisTagihan: {
-              select: {
-                name: true,
-              },
-            },
+            jenisTagihan: true,
           },
         },
       },
@@ -72,6 +71,9 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[TRANSAKSI_SANTRI_GET]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 } 

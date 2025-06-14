@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 const tagihanSchema = z.object({
   santriId: z.string().uuid("ID Santri tidak valid"),
@@ -124,23 +125,41 @@ export async function POST(request: Request) {
     }
 
     // Create tagihan
-    const tagihan = await prisma.tagihan.create({
-      data: {
-        santriId: validatedData.santriId,
-        jenisTagihanId: validatedData.jenisTagihanId,
-        amount: BigInt(validatedData.amount),
-        dueDate: new Date(validatedData.dueDate),
-        description: validatedData.description,
-        status: "pending",
-      },
-      include: {
-        santri: {
-          include: {
-            kelas: true,
-          },
+    const tagihan = await prisma.$transaction(async (tx) => {
+      const newTagihan = await tx.tagihan.create({
+        data: {
+          santriId: validatedData.santriId,
+          jenisTagihanId: validatedData.jenisTagihanId,
+          amount: BigInt(validatedData.amount),
+          dueDate: new Date(validatedData.dueDate),
+          description: validatedData.description,
+          status: "pending",
         },
-        jenisTagihan: true,
-      },
+        include: {
+          santri: {
+            include: {
+              user: true,
+              kelas: true,
+            },
+          },
+          jenisTagihan: true,
+        },
+      });
+
+      // Buat notifikasi untuk santri
+      if (newTagihan.santri.user) {
+        const notifikasiData: Prisma.NotifikasiUncheckedCreateInput = {
+          userId: newTagihan.santri.user.id,
+          title: "Tagihan Baru",
+          message: `Anda memiliki tagihan baru untuk ${newTagihan.jenisTagihan.name} sebesar Rp ${Number(validatedData.amount).toLocaleString('id-ID')} dengan jatuh tempo ${new Date(validatedData.dueDate).toLocaleDateString('id-ID')}`,
+          type: "tagihan_baru"
+        };
+        await tx.notifikasi.create({
+          data: notifikasiData
+        });
+      }
+
+      return newTagihan;
     });
 
     // Convert BigInt to number for JSON serialization

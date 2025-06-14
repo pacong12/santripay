@@ -41,10 +41,16 @@ export async function GET() {
       },
     });
 
-    // Mengambil total tagihan yang terlambat
+    // Mengambil total tagihan yang terlambat (jatuh tempo)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const totalTerlambat = await prisma.tagihan.aggregate({
       where: {
-        status: "overdue",
+        status: "pending",
+        dueDate: {
+          lt: today,
+        },
       },
       _sum: {
         amount: true,

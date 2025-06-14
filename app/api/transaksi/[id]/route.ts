@@ -5,12 +5,8 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { StatusTransaksi } from "@prisma/client";
 
+// Schema validasi untuk update transaksi
 const transaksiSchema = z.object({
-  santriId: z.string(),
-  tagihanId: z.string(),
-  amount: z.number().positive(),
-  paymentDate: z.string(),
-  paymentMethod: z.enum(["cash", "transfer"]),
   status: z.enum(["pending", "approved", "rejected"]),
   note: z.string().optional(),
 });
@@ -44,11 +40,7 @@ function serializeBigInt(data: any): any {
   if (typeof data === "object") {
     const result: any = {};
     for (const key in data) {
-      if (key === 'paymentDate' || key === 'payment_date') {
-        result[key] = data[key] ? new Date(data[key]).toISOString() : null;
-      } else {
-        result[key] = serializeBigInt(data[key]);
-      }
+      result[key] = serializeBigInt(data[key]);
     }
     return result;
   }
@@ -58,23 +50,31 @@ function serializeBigInt(data: any): any {
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const { id } = params;
+    const { id } = context.params;
 
     const transaksi = await prisma.transaksi.findUnique({
       where: {
         id,
       },
       include: {
-        santri: true,
+        santri: {
+          include: {
+            user: true,
+            kelas: true,
+          },
+        },
         tagihan: {
           include: {
             jenisTagihan: true,
@@ -84,28 +84,56 @@ export async function GET(
     });
 
     if (!transaksi) {
-      return new NextResponse("Not found", { status: 404 });
+      return NextResponse.json(
+        { message: "Transaksi tidak ditemukan" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(transaksi);
+    // Verifikasi bahwa user yang login adalah pemilik transaksi atau admin
+    if (session.user.role !== "admin" && transaksi.santri.userId !== session.user.id) {
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    const serializedTransaksi = serializeBigInt(transaksi);
+    return NextResponse.json({
+      message: "Data transaksi berhasil diambil",
+      data: serializedTransaksi,
+    });
   } catch (error) {
     console.error("[TRANSACTION_GET]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const { id } = params;
+    if (session.user.role !== "admin") {
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    const { id } = context.params;
     const body = await req.json();
     const validatedData = transaksiSchema.parse(body);
 
@@ -114,16 +142,16 @@ export async function PATCH(
         id,
       },
       data: {
-        santriId: validatedData.santriId,
-        tagihanId: validatedData.tagihanId,
-        amount: validatedData.amount,
-        paymentDate: new Date(validatedData.paymentDate),
-        paymentMethod: validatedData.paymentMethod,
         status: validatedData.status,
         note: validatedData.note,
       },
       include: {
-        santri: true,
+        santri: {
+          include: {
+            user: true,
+            kelas: true,
+          },
+        },
         tagihan: {
           include: {
             jenisTagihan: true,
@@ -132,10 +160,23 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json(transaksi);
+    const serializedTransaksi = serializeBigInt(transaksi);
+    return NextResponse.json({
+      message: "Transaksi berhasil diperbarui",
+      data: serializedTransaksi,
+    });
   } catch (error) {
     console.error("[TRANSACTION_PATCH]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { message: "Validation error", errors: error.errors },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -147,7 +188,10 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const { id } = params;
@@ -158,9 +202,14 @@ export async function DELETE(
       },
     });
 
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json({
+      message: "Transaksi berhasil dihapus",
+    }, { status: 200 });
   } catch (error) {
     console.error("[TRANSACTION_DELETE]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 } 

@@ -44,15 +44,8 @@ export default async function middleware(request: NextRequestWithAuth) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  const response = NextResponse.next();
-  
-  // Tambahkan header cache untuk session
-  response.headers.set(
-    "Cache-Control",
-    "public, s-maxage=10, stale-while-revalidate=59"
-  );
-
-  return response;
+  // Izinkan akses ke halaman yang diminta jika sudah terautentikasi
+  return NextResponse.next();
 }
 
 export const config = {

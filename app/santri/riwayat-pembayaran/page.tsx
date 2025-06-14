@@ -25,6 +25,8 @@ interface Transaksi {
   amount: number;
   status: string;
   paymentDate: string;
+  note?: string;
+  rejectionReason?: string;
   tagihan: {
     jenisTagihan: {
       name: string;
@@ -124,27 +126,47 @@ export default function RiwayatPembayaranSantriPage() {
                 {transaksi.map((t: Transaksi) => (
                   <div
                     key={t.id}
-                    className="flex items-center justify-between rounded-lg border p-4"
+                    className="flex flex-col rounded-lg border p-4"
                   >
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {t.tagihan.jenisTagihan.name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(t.paymentDate).toLocaleDateString("id-ID")}
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {t.tagihan.jenisTagihan.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(t.paymentDate).toLocaleDateString("id-ID")}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">
+                          Rp {Number(t.amount).toLocaleString("id-ID")}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn("mt-1", getStatusColor(t.status))}
+                        >
+                          {getStatusText(t.status)}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">
-                        Rp {Number(t.amount).toLocaleString("id-ID")}
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className={cn("mt-1", getStatusColor(t.status))}
-                      >
-                        {getStatusText(t.status)}
-                      </Badge>
-                    </div>
+                    {t.status === "rejected" && (
+                      <>
+                        {t.rejectionReason && (
+                          <div className="mt-2 p-2 bg-red-50 rounded-md">
+                            <p className="text-sm text-red-600">
+                              <span className="font-medium">Alasan ditolak:</span> {t.rejectionReason}
+                            </p>
+                          </div>
+                        )}
+                        {t.note && (
+                          <div className="mt-2 p-2 bg-gray-50 rounded-md">
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Catatan:</span> {t.note}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

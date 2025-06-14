@@ -75,6 +75,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 interface Tagihan {
   id: string;
@@ -465,55 +466,59 @@ export default function TagihanPage() {
   if (errorTagihan || errorJenisTagihan || errorSantri) return <div>Terjadi kesalahan saat memuat data</div>;
 
   return (
-    <div className="flex h-screen">
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6">
-          <header className="flex h-14 shrink-0 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">Toggle menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="p-0">
-                  <AppSidebar />
-                </SheetContent>
-              </Sheet>
-              <Separator orientation="vertical" className="h-8 hidden md:block" />
-              <div className="flex flex-col">
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem>
-                      <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>Tagihan</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
-                <h2 className="text-3xl font-bold tracking-tight">Tagihan</h2>
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0">
+              <AppSidebar />
+            </SheetContent>
+          </Sheet>
+          <Separator orientation="vertical" className="h-8 hidden md:block" />
+          <div className="flex flex-col">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Tagihan</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <h2 className="text-3xl font-bold tracking-tight">Tagihan</h2>
+          </div>
+        </div>
+        <Button onClick={handleAddTagihan}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Tagihan
+        </Button>
+      </header>
+      <div className="flex-1 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center py-4">
+                <Input
+                  placeholder="Filter tagihan..."
+                  value={(table.getColumn("santri")?.getFilterValue() as string) ?? ""}
+                  onChange={(event) =>
+                    table.getColumn("santri")?.setFilterValue(event.target.value)
+                  }
+                  className="max-w-sm"
+                />
               </div>
             </div>
-            <Button onClick={handleAddTagihan}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Tambah Tagihan
-            </Button>
-          </header>
-          <div className="flex-1 space-y-6">
-            <div className="flex items-center py-4">
-              <Input
-                placeholder="Filter tagihan..."
-                value={(table.getColumn("santri")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                  table.getColumn("santri")?.setFilterValue(event.target.value)
-                }
-                className="max-w-sm"
-              />
-            </div>
-            <div className="rounded-md border">
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -581,8 +586,8 @@ export default function TagihanPage() {
                 </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
           <DialogContent>

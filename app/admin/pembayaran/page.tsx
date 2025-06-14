@@ -159,8 +159,8 @@ export default function PembayaranPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6">
-      <header className="flex h-14 shrink-0 items-center justify-between">
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
         <div className="flex items-center gap-2">
           <Sheet>
             <SheetTrigger asChild>
@@ -194,112 +194,118 @@ export default function PembayaranPage() {
         </Button>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Daftar Pembayaran</CardTitle>
-          <CardDescription>Kelola dan verifikasi pembayaran dari santri.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex h-full items-center justify-center py-10">
-              <p className="text-sm text-muted-foreground">Memuat data pembayaran...</p>
+      <div className="flex-1 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <CardTitle>Daftar Pembayaran</CardTitle>
+              <CardDescription>Kelola dan verifikasi pembayaran dari santri.</CardDescription>
             </div>
-          ) : pembayaran?.length === 0 ? (
-            <div className="flex h-full items-center justify-center py-10">
-              <p className="text-sm text-muted-foreground">Tidak ada pembayaran</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Santri</TableHead>
-                  <TableHead>Kelas</TableHead>
-                  <TableHead>Jenis Tagihan</TableHead>
-                  <TableHead>Jumlah</TableHead>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Catatan</TableHead>
-                  <TableHead>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pembayaran?.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.santri.name}</TableCell>
-                    <TableCell>{item.santri.kelas.name}</TableCell>
-                    <TableCell>{item.tagihan.jenisTagihan.name}</TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat("id-ID", {
-                        style: "currency",
-                        currency: "IDR",
-                      }).format(item.amount)}
-                    </TableCell>
-                    <TableCell>
-                      {formatDistanceToNow(new Date(item.paymentDate), {
-                        addSuffix: true,
-                        locale: id,
-                      })}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(item.status)}</TableCell>
-                    <TableCell>{item.note}</TableCell>
-                    <TableCell>
-                      {item.status === "pending" && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleApprove(item.id)}
-                          >
-                            Setujui
-                          </Button>
-                          <Dialog>
-                            <DialogTrigger asChild>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex h-full items-center justify-center py-10">
+                <p className="text-sm text-muted-foreground">Memuat data pembayaran...</p>
+              </div>
+            ) : pembayaran?.length === 0 ? (
+              <div className="flex h-full items-center justify-center py-10">
+                <p className="text-sm text-muted-foreground">Tidak ada pembayaran</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Santri</TableHead>
+                      <TableHead>Kelas</TableHead>
+                      <TableHead>Jenis Tagihan</TableHead>
+                      <TableHead>Jumlah</TableHead>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Catatan</TableHead>
+                      <TableHead>Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pembayaran?.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.santri.name}</TableCell>
+                        <TableCell>{item.santri.kelas.name}</TableCell>
+                        <TableCell>{item.tagihan.jenisTagihan.name}</TableCell>
+                        <TableCell>
+                          {new Intl.NumberFormat("id-ID", {
+                            style: "currency",
+                            currency: "IDR",
+                          }).format(item.amount)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDistanceToNow(new Date(item.paymentDate), {
+                            addSuffix: true,
+                            locale: id,
+                          })}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(item.status)}</TableCell>
+                        <TableCell>{item.note}</TableCell>
+                        <TableCell>
+                          {item.status === "pending" && (
+                            <div className="flex gap-2">
                               <Button
-                                variant="destructive"
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setSelectedPembayaran(item)}
+                                onClick={() => handleApprove(item.id)}
                               >
-                                Tolak
+                                Setujui
                               </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Tolak Pembayaran</DialogTitle>
-                                <DialogDescription>
-                                  Berikan alasan penolakan pembayaran ini.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                  <Label htmlFor="note">Alasan Penolakan</Label>
-                                  <Textarea
-                                    id="note"
-                                    value={rejectionNote}
-                                    onChange={(e) => setRejectionNote(e.target.value)}
-                                    placeholder="Masukkan alasan penolakan..."
-                                  />
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button
-                                  variant="destructive"
-                                  onClick={() => handleReject(item.id)}
-                                >
-                                  Tolak Pembayaran
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => setSelectedPembayaran(item)}
+                                  >
+                                    Tolak
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Tolak Pembayaran</DialogTitle>
+                                    <DialogDescription>
+                                      Berikan alasan penolakan pembayaran ini.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="note">Alasan Penolakan</Label>
+                                      <Textarea
+                                        id="note"
+                                        value={rejectionNote}
+                                        onChange={(e) => setRejectionNote(e.target.value)}
+                                        placeholder="Masukkan alasan penolakan..."
+                                      />
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => handleReject(item.id)}
+                                    >
+                                      Tolak Pembayaran
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 } 

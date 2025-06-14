@@ -81,27 +81,16 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
-interface Transaksi {
+interface Tagihan {
   id: string;
-  tagihanId: string;
+  santriId: string;
+  jenisTagihanId: string;
   amount: number;
-  paymentDate: string;
-  status: string;
-  note?: string;
-  santri?: {
-    id: string;
-    name: string;
-    kelas?: {
-      id: string;
-      name: string;
-      level?: string;
-    };
-  };
-  tagihan?: {
-    id: string;
-    amount: number;
+  dueDate: string;
     status: "pending" | "paid" | "overdue";
+  description?: string;
     santri?: {
       id: string;
       name: string;
@@ -114,47 +103,44 @@ interface Transaksi {
     jenisTagihan: {
       id: string;
       name: string;
-    };
+    amount: number;
   };
 }
 
-interface Tagihan {
+interface Santri {
   id: string;
-  amount: number;
-  status: "pending" | "paid" | "overdue";
-  santri: {
+  name: string;
+  kelas?: {
     id: string;
-    name: string;
-    santriId: string;
-    kelas: {
       name: string;
       level?: string;
     };
-  };
-  jenisTagihan: {
+}
+
+interface JenisTagihan {
     id: string;
     name: string;
-  };
+  amount: number;
 }
 
 const formSchema = z.object({
   id: z.string().optional(),
-  tagihanId: z.string().uuid("Pilih tagihan yang valid"),
+  santriId: z.string().uuid("Pilih santri yang valid"),
+  jenisTagihanId: z.string().uuid("Pilih jenis tagihan yang valid"),
   amount: z.coerce.number().min(0, "Jumlah harus lebih dari atau sama dengan 0"),
-  paymentDate: z.string().min(1, "Tanggal pembayaran harus diisi"),
-  status: z.enum(["pending", "approved", "rejected"]),
-  note: z.string().optional(),
+  dueDate: z.string().min(1, "Tanggal jatuh tempo harus diisi"),
+  description: z.string().optional(),
 });
 
-export default function TransaksiPage() {
+export default function TagihanPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   
   // State hooks
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [editingTransaksi, setEditingTransaksi] = React.useState<Transaksi | null>(null);
-  const [deletingTransaksiId, setDeletingTransaksiId] = React.useState<string | null>(null);
-  const [showingDetailTransaksi, setShowingDetailTransaksi] = React.useState<Transaksi | null>(null);
+  const [editingTagihan, setEditingTagihan] = React.useState<Tagihan | null>(null);
+  const [deletingTagihanId, setDeletingTagihanId] = React.useState<string | null>(null);
+  const [showingDetailTagihan, setShowingDetailTagihan] = React.useState<Tagihan | null>(null);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
@@ -164,24 +150,15 @@ export default function TransaksiPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       id: "",
-      tagihanId: "",
+      santriId: "",
+      jenisTagihanId: "",
       amount: 0,
-      paymentDate: "",
-      status: "pending",
-      note: "",
+      dueDate: "",
+      description: "",
     },
   });
 
   // Query hooks
-  const {
-    data: transaksiData,
-    isLoading: isLoadingTransaksi,
-    error: errorTransaksi,
-  } = useQuery<Transaksi[]>({ 
-    queryKey: ["transaksi"], 
-    queryFn: () => fetch("/api/transaksi").then((res) => res.json()) 
-  });
-
   const {
     data: tagihanData,
     isLoading: isLoadingTagihan,
@@ -191,163 +168,102 @@ export default function TransaksiPage() {
     queryFn: () => fetch("/api/tagihan").then((res) => res.json()) 
   });
 
+  const {
+    data: santriData,
+    isLoading: isLoadingSantri,
+    error: errorSantri,
+  } = useQuery<Santri[]>({ 
+    queryKey: ["santri"], 
+    queryFn: () => fetch("/api/santri").then((res) => res.json()) 
+  });
+
+  const {
+    data: jenisTagihanData,
+    isLoading: isLoadingJenisTagihan,
+    error: errorJenisTagihan,
+  } = useQuery<JenisTagihan[]>({ 
+    queryKey: ["jenis-tagihan"], 
+    queryFn: () => fetch("/api/jenis-tagihan").then((res) => res.json()) 
+  });
+
   // Mutation hooks
-  const addTransaksiMutation = useMutation({
-    mutationFn: async (newTransaksi: z.infer<typeof formSchema>) => {
-      console.log('Sending data to API:', newTransaksi);
-      const response = await fetch("/api/transaksi", {
+  const addTagihanMutation = useMutation({
+    mutationFn: async (newTagihan: z.infer<typeof formSchema>) => {
+      const response = await fetch("/api/tagihan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTransaksi),
+        body: JSON.stringify(newTagihan),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('API Error Response:', errorData);
-        throw new Error(errorData.message || "Gagal menambahkan transaksi");
+        throw new Error(errorData.message || "Gagal menambahkan tagihan");
       }
 
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transaksi", "tagihan"] });
+      queryClient.invalidateQueries({ queryKey: ["tagihan"] });
       setIsDialogOpen(false);
-      setEditingTransaksi(null);
+      setEditingTagihan(null);
       form.reset();
-      toast.success("Transaksi berhasil ditambahkan");
+      toast.success("Tagihan berhasil ditambahkan");
     },
     onError: (error: Error) => {
-      console.error('Mutation Error:', error);
       toast.error(error.message);
     },
   });
 
-  const updateTransaksiMutation = useMutation({
-    mutationFn: async (updatedTransaksi: Partial<Transaksi> & { id: string }) => {
-      console.log('Sending update data to API:', updatedTransaksi);
-      const response = await fetch(`/api/transaksi/${updatedTransaksi.id}`, {
+  const updateTagihanMutation = useMutation({
+    mutationFn: async (updatedTagihan: Partial<Tagihan> & { id: string }) => {
+      const response = await fetch(`/api/tagihan/${updatedTagihan.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tagihanId: updatedTransaksi.tagihanId,
-          amount: updatedTransaksi.amount,
-          paymentDate: updatedTransaksi.paymentDate,
-          status: updatedTransaksi.status,
-          description: updatedTransaksi.note,
+          santriId: updatedTagihan.santriId,
+          jenisTagihanId: updatedTagihan.jenisTagihanId,
+          amount: updatedTagihan.amount,
+          dueDate: updatedTagihan.dueDate,
+          description: updatedTagihan.description,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('API Error Response:', errorData);
-        throw new Error(errorData.message || "Gagal memperbarui transaksi");
+        throw new Error(errorData.message || "Gagal memperbarui tagihan");
       }
 
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transaksi", "tagihan"] });
+      queryClient.invalidateQueries({ queryKey: ["tagihan"] });
       setIsDialogOpen(false);
-      setEditingTransaksi(null);
+      setEditingTagihan(null);
       form.reset();
-      toast.success("Transaksi berhasil diperbarui");
+      toast.success("Tagihan berhasil diperbarui");
     },
     onError: (error: Error) => {
-      console.error('Mutation Error:', error);
       toast.error(error.message);
     },
   });
 
-  const deleteTransaksiMutation = useMutation({
+  const deleteTagihanMutation = useMutation({
     mutationFn: (id: string) =>
-      fetch(`/api/transaksi/${id}`, {
+      fetch(`/api/tagihan/${id}`, {
         method: "DELETE",
       }).then((res) => res.json()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transaksi", "tagihan"] });
-      setDeletingTransaksiId(null);
-      toast.success("Transaksi berhasil dihapus");
+      queryClient.invalidateQueries({ queryKey: ["tagihan"] });
+      setDeletingTagihanId(null);
+      toast.success("Tagihan berhasil dihapus");
     },
   });
 
-  // Effect hooks
-  React.useEffect(() => {
-    if (editingTransaksi) {
-      try {
-        // Pastikan paymentDate ada dan valid
-        if (!editingTransaksi.paymentDate || 
-            (typeof editingTransaksi.paymentDate === 'object' && 
-             Object.keys(editingTransaksi.paymentDate).length === 0)) {
-          throw new Error('Payment date is required');
-        }
-
-        // Log untuk debugging
-        console.log('Raw paymentDate:', editingTransaksi.paymentDate);
-        console.log('Type of paymentDate:', typeof editingTransaksi.paymentDate);
-
-        // Coba parse tanggal dengan berbagai format
-        let paymentDate: Date;
-        const rawDate = editingTransaksi.paymentDate;
-        
-        if (typeof rawDate === 'string') {
-          // Jika string, coba parse sebagai ISO string
-          paymentDate = new Date(rawDate);
-        } else if (rawDate && typeof rawDate === 'object' && 'getTime' in rawDate) {
-          // Jika sudah Date object, gunakan langsung
-          paymentDate = rawDate as Date;
-        } else {
-          // Jika format lain, coba parse sebagai timestamp
-          paymentDate = new Date(Number(rawDate));
-        }
-
-        // Validasi hasil parsing
-        if (isNaN(paymentDate.getTime())) {
-          console.error('Failed to parse date:', rawDate);
-          throw new Error('Invalid date format');
-        }
-
-        // Format tanggal ke YYYY-MM-DD
-        const formattedDate = paymentDate.toISOString().split('T')[0];
-        console.log('Formatted date in useEffect:', formattedDate);
-
-        form.reset({
-          id: editingTransaksi.id,
-          tagihanId: editingTransaksi.tagihanId,
-          amount: editingTransaksi.amount,
-          paymentDate: formattedDate,
-          status: editingTransaksi.status as "pending" | "approved" | "rejected",
-          note: editingTransaksi.note || "",
-        });
-      } catch (error) {
-        console.error('Error in useEffect:', error);
-        // Gunakan tanggal hari ini sebagai fallback
-        const today = new Date().toISOString().split('T')[0];
-        form.reset({
-          id: editingTransaksi.id,
-          tagihanId: editingTransaksi.tagihanId,
-          amount: editingTransaksi.amount,
-          paymentDate: today,
-          status: editingTransaksi.status as "pending" | "approved" | "rejected",
-          note: editingTransaksi.note || "",
-        });
-      }
-    } else {
-      form.reset({
-        id: "",
-        tagihanId: "",
-        amount: 0,
-        paymentDate: "",
-        status: "pending",
-        note: "",
-      });
-    }
-  }, [editingTransaksi, form]);
-
   // Table configuration
-  const columns: ColumnDef<Transaksi>[] = [
+  const columns: ColumnDef<Tagihan>[] = [
     {
       id: "select",
-      header: ({ table }: { table: TanstackTable<Transaksi> }) => (
+      header: ({ table }: { table: TanstackTable<Tagihan> }) => (
         <Checkbox
           checked={
             table.getIsAllPageRowsSelected() ||
@@ -357,7 +273,7 @@ export default function TransaksiPage() {
           aria-label="Select all"
         />
       ),
-      cell: ({ row }: { row: Row<Transaksi> }) => (
+      cell: ({ row }: { row: Row<Tagihan> }) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value: boolean | "indeterminate") => row.toggleSelected(!!value)}
@@ -370,16 +286,16 @@ export default function TransaksiPage() {
     {
       id: "no",
       header: "No",
-      cell: ({ row }: { row: Row<Transaksi> }) => row.index + 1,
+      cell: ({ row }: { row: Row<Tagihan> }) => row.index + 1,
       enableSorting: false,
       enableHiding: false,
     },
     {
       id: "santri",
       header: "Santri",
-      accessorFn: (row) => row.santri?.name || row.tagihan?.santri?.name || "-",
-      cell: ({ row }: { row: Row<Transaksi> }) => {
-        const santri = row.original.santri || row.original.tagihan?.santri;
+      accessorFn: (row) => row.santri?.name || "-",
+      cell: ({ row }: { row: Row<Tagihan> }) => {
+        const santri = row.original.santri;
         return (
           <div className="flex flex-col">
             <div className="font-medium">{santri?.name || "-"}</div>
@@ -393,13 +309,13 @@ export default function TransaksiPage() {
     {
       id: "jenisTagihan",
       header: "Jenis Tagihan",
-      accessorFn: (row) => row.tagihan?.jenisTagihan?.name || "-",
-      cell: ({ row }: { row: Row<Transaksi> }) => (
+      accessorFn: (row) => row.jenisTagihan?.name || "-",
+      cell: ({ row }: { row: Row<Tagihan> }) => (
         <div className="flex flex-col">
-          <div className="font-medium">{row.original.tagihan?.jenisTagihan?.name || "-"}</div>
+          <div className="font-medium">{row.original.jenisTagihan?.name || "-"}</div>
           <div className="text-sm text-muted-foreground">
-            {row.original.tagihan?.status === "overdue" ? "Terlambat" : 
-             row.original.tagihan?.status === "paid" ? "Lunas" : "Menunggu"}
+            {row.original.status === "overdue" ? "Terlambat" : 
+             row.original.status === "paid" ? "Lunas" : "Menunggu"}
           </div>
         </div>
       ),
@@ -407,106 +323,52 @@ export default function TransaksiPage() {
     {
       accessorKey: "amount",
       header: "Jumlah",
-      cell: ({ row }: { row: Row<Transaksi> }) => {
+      cell: ({ row }: { row: Row<Tagihan> }) => {
         const amount = row.getValue<number>("amount");
-        const tagihanAmount = row.original.tagihan?.amount || 0;
-        const isFullPayment = amount >= tagihanAmount;
-        
         return (
-          <div className="flex flex-col">
             <div className="font-medium">
               {new Intl.NumberFormat("id-ID", {
                 style: "currency",
                 currency: "IDR",
               }).format(amount)}
-            </div>
-            {!isFullPayment && (
-              <div className="text-sm text-yellow-600">
-                Pembayaran Sebagian
-              </div>
-            )}
           </div>
         );
       },
     },
     {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }: { row: Row<Transaksi> }) => {
-        const status = row.getValue<string>("status");
-        const statusColors = {
-          pending: "bg-yellow-100 text-yellow-800",
-          approved: "bg-green-100 text-green-800",
-          rejected: "bg-red-100 text-red-800",
-        };
-        const statusLabels = {
-          pending: "Menunggu",
-          approved: "Disetujui",
-          rejected: "Ditolak",
-        };
-        return (
-          <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[status as keyof typeof statusColors]}`}>
-            {statusLabels[status as keyof typeof statusLabels]}
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: "paymentDate",
-      header: "Tanggal Pembayaran",
-      cell: ({ row }: { row: Row<Transaksi> }) => {
-        try {
-          const paymentDateStr = row.getValue<string>("paymentDate");
-          
-          // Cek jika paymentDate kosong atau tidak valid
-          if (!paymentDateStr || 
-              typeof paymentDateStr !== 'string' || 
-              paymentDateStr === "{}" || 
-              paymentDateStr === "null" ||
-              paymentDateStr === "undefined") {
-            return <div className="text-muted-foreground">-</div>;
-          }
-
-          // Pastikan format tanggal valid
-          const paymentDate = new Date(paymentDateStr);
-          if (isNaN(paymentDate.getTime())) {
-            console.error('Invalid payment date:', paymentDateStr);
-            return <div className="text-red-500">Format tanggal tidak valid</div>;
-          }
-
+      accessorKey: "dueDate",
+      header: "Jatuh Tempo",
+      cell: ({ row }: { row: Row<Tagihan> }) => {
+        const dueDate = new Date(row.getValue<string>("dueDate"));
           const today = new Date();
-          today.setHours(0, 0, 0, 0); // Reset waktu ke awal hari
-          paymentDate.setHours(0, 0, 0, 0); // Reset waktu ke awal hari
+        today.setHours(0, 0, 0, 0);
+        dueDate.setHours(0, 0, 0, 0);
           
-          const isLate = paymentDate > today;
+        const isOverdue = dueDate < today && row.original.status !== "paid";
           
           return (
             <div className="flex flex-col">
               <div className="font-medium">
-                {paymentDate.toLocaleDateString("id-ID", {
+              {dueDate.toLocaleDateString("id-ID", {
                   day: "numeric",
                   month: "long",
                   year: "numeric",
                 })}
               </div>
-              {isLate && (
+            {isOverdue && (
                 <div className="text-sm text-red-600">
-                  Pembayaran Terlambat
+                Terlambat
                 </div>
               )}
             </div>
           );
-        } catch (error) {
-          console.error('Error formatting payment date:', error);
-          return <div className="text-red-500">Error format tanggal</div>;
-        }
       },
     },
     {
       id: "actions",
       enableHiding: false,
-      cell: ({ row }: { row: Row<Transaksi> }) => {
-        const transaksi = row.original;
+      cell: ({ row }: { row: Row<Tagihan> }) => {
+        const tagihan = row.original;
 
         return (
           <DropdownMenu>
@@ -517,9 +379,9 @@ export default function TransaksiPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEditTransaksi(transaksi)}>Edit</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => confirmDeleteTransaksi(transaksi.id)}>Hapus</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDetailTransaksi(transaksi)}>Detail</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleEditTagihan(tagihan)}>Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => confirmDeleteTagihan(tagihan.id)}>Hapus</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDetailTagihan(tagihan)}>Detail</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -527,8 +389,8 @@ export default function TransaksiPage() {
     },
   ];
 
-  const table = useReactTable<Transaksi>({
-    data: transaksiData || [],
+  const table = useReactTable<Tagihan>({
+    data: tagihanData || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -544,156 +406,57 @@ export default function TransaksiPage() {
   });
 
   // Handler functions
-  const handleEditTransaksi = async (transaksi: Transaksi) => {
-    try {
-      // Ambil data transaksi terbaru dari API
-      const response = await fetch(`/api/transaksi/${transaksi.id}`);
-      if (!response.ok) {
-        throw new Error('Gagal mengambil data transaksi');
-      }
-      const updatedTransaksi = await response.json();
-      
-      // Format tanggal ke YYYY-MM-DD
-      let paymentDate = new Date().toISOString().split('T')[0];
-
-      // Coba dapatkan tanggal dari transaksi jika ada
-      if (updatedTransaksi.paymentDate && 
-          typeof updatedTransaksi.paymentDate === 'string' &&
-          updatedTransaksi.paymentDate !== "{}" && 
-          updatedTransaksi.paymentDate !== "null" &&
-          updatedTransaksi.paymentDate !== "undefined") {
-        try {
-          // Pastikan format tanggal valid
-          const date = new Date(updatedTransaksi.paymentDate);
-          if (!isNaN(date.getTime())) {
-            paymentDate = date.toISOString().split('T')[0];
-          } else {
-            console.error('Invalid payment date:', updatedTransaksi.paymentDate);
-          }
-        } catch (e) {
-          console.error('Error parsing date:', e);
-        }
-      }
-
-      setEditingTransaksi({
-        ...updatedTransaksi,
-        paymentDate
-      });
-
+  const handleEditTagihan = (tagihan: Tagihan) => {
+    setEditingTagihan(tagihan);
       form.reset({
-        id: updatedTransaksi.id,
-        tagihanId: updatedTransaksi.tagihanId,
-        amount: updatedTransaksi.amount,
-        paymentDate,
-        status: updatedTransaksi.status as "pending" | "approved" | "rejected",
-        note: updatedTransaksi.note || "",
+      id: tagihan.id,
+      santriId: tagihan.santriId,
+      jenisTagihanId: tagihan.jenisTagihanId,
+      amount: tagihan.amount,
+      dueDate: tagihan.dueDate,
+      description: tagihan.description || "",
       });
-      
       setIsDialogOpen(true);
-    } catch (error) {
-      console.error('Error in handleEditTransaksi:', error);
-      toast.error('Gagal mengambil data transaksi');
-    }
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
-    setEditingTransaksi(null);
+    setEditingTagihan(null);
     form.reset({
       id: "",
-      tagihanId: "",
+      santriId: "",
+      jenisTagihanId: "",
       amount: 0,
-      paymentDate: "",
-      status: "pending",
-      note: "",
+      dueDate: "",
+      description: "",
     });
   };
 
-  const confirmDeleteTransaksi = (id: string) => {
-    setDeletingTransaksiId(id);
+  const confirmDeleteTagihan = (id: string) => {
+    setDeletingTagihanId(id);
   };
 
   const handleDeleteConfirm = () => {
-    if (deletingTransaksiId) {
-      deleteTransaksiMutation.mutate(deletingTransaksiId);
+    if (deletingTagihanId) {
+      deleteTagihanMutation.mutate(deletingTagihanId);
     }
   };
 
-  const handleDetailTransaksi = (transaksi: Transaksi) => {
-    setShowingDetailTransaksi(transaksi);
+  const handleDetailTagihan = (tagihan: Tagihan) => {
+    setShowingDetailTagihan(tagihan);
   };
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
-      console.log('Form data:', data);
-
-      // Format tanggal ke YYYY-MM-DD
-      let paymentDate = new Date().toISOString().split('T')[0];
-      
-      if (data.paymentDate && 
-          typeof data.paymentDate === 'string' &&
-          data.paymentDate !== "{}" && 
-          data.paymentDate !== "null" &&
-          data.paymentDate !== "undefined") {
-        try {
-          const date = new Date(data.paymentDate);
-          if (!isNaN(date.getTime())) {
-            paymentDate = date.toISOString().split('T')[0];
-          } else {
-            toast.error("Format tanggal pembayaran tidak valid");
-            return;
-          }
-        } catch (e) {
-          console.error('Error parsing date:', e);
-          toast.error("Format tanggal pembayaran tidak valid");
-          return;
-        }
-      }
-
-      // Validasi tagihan sebelum mengirim data
-      const selectedTagihan = tagihanData?.find(t => t.id === data.tagihanId);
-      if (!selectedTagihan) {
-        toast.error("Tagihan tidak ditemukan");
-        return;
-      }
-
-      // Validasi status tagihan
-      if (selectedTagihan.status === "paid") {
-        toast.error("Tagihan ini sudah dibayar");
-        return;
-      }
-
-      if (selectedTagihan.status === "overdue") {
-        toast.error("Tagihan ini sudah terlambat");
-        return;
-      }
-
-      // Validasi jumlah pembayaran
-      if (Number(data.amount) < selectedTagihan.amount) {
-        toast.error("Jumlah pembayaran tidak boleh kurang dari jumlah tagihan");
-        return;
-      }
-
-      const payload = {
-        tagihanId: data.tagihanId,
-        amount: Number(data.amount),
-        paymentDate,
-        status: data.status,
-        description: data.note || "",
-      };
-
-      console.log('Payload:', payload);
-
-      if (editingTransaksi) {
-        await updateTransaksiMutation.mutateAsync({
-          id: editingTransaksi.id,
-          ...payload,
+      if (editingTagihan) {
+        await updateTagihanMutation.mutateAsync({
+          id: editingTagihan.id,
+          ...data,
         });
       } else {
-        await addTransaksiMutation.mutateAsync(payload);
+        await addTagihanMutation.mutateAsync(data);
       }
     } catch (error) {
-      console.error("Error in onSubmit:", error);
       if (error instanceof Error) {
         toast.error(error.message);
       } else {
@@ -702,59 +465,63 @@ export default function TransaksiPage() {
     }
   };
 
-  if (isLoadingTransaksi || isLoadingTagihan) return <div>Memuat data...</div>;
-  if (errorTransaksi || errorTagihan) return <div>Terjadi kesalahan saat memuat data</div>;
+  if (isLoadingTagihan || isLoadingSantri || isLoadingJenisTagihan) return <div>Memuat data...</div>;
+  if (errorTagihan || errorSantri || errorJenisTagihan) return <div>Terjadi kesalahan saat memuat data</div>;
 
   return (
-    <div className="flex h-screen">
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6">
-          <header className="flex h-14 shrink-0 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">Toggle menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="p-0">
-                  <AppSidebar />
-                </SheetContent>
-              </Sheet>
-              <Separator orientation="vertical" className="h-8 hidden md:block" />
-              <div className="flex flex-col">
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem>
-                      <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>Transaksi</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
-                <h2 className="text-3xl font-bold tracking-tight">Transaksi</h2>
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0">
+              <AppSidebar />
+            </SheetContent>
+          </Sheet>
+          <Separator orientation="vertical" className="h-8 hidden md:block" />
+          <div className="flex flex-col">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Tagihan</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <h2 className="text-3xl font-bold tracking-tight">Tagihan</h2>
+          </div>
+        </div>
+        <Button onClick={() => setIsDialogOpen(true)}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Tagihan
+        </Button>
+      </header>
+      <div className="flex-1 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center py-4">
+                <Input
+                  placeholder="Filter tagihan..."
+                  value={(table.getColumn("santri")?.getFilterValue() as string) ?? ""}
+                  onChange={(event) =>
+                    table.getColumn("santri")?.setFilterValue(event.target.value)
+                  }
+                  className="max-w-sm"
+                />
               </div>
             </div>
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Tambah Transaksi
-            </Button>
-          </header>
-          <div className="flex-1 space-y-6">
-            <div className="flex items-center py-4">
-              <Input
-                placeholder="Filter transaksi..."
-                value={(table.getColumn("santri")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                  table.getColumn("santri")?.setFilterValue(event.target.value)
-                }
-                className="max-w-sm"
-              />
-            </div>
-            <div className="rounded-md border">
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
@@ -822,33 +589,70 @@ export default function TransaksiPage() {
                 </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingTransaksi ? "Edit Transaksi" : "Tambah Transaksi"}
+                {editingTagihan ? "Edit Tagihan" : "Tambah Tagihan"}
               </DialogTitle>
               <DialogDescription>
-                {editingTransaksi
-                  ? "Ubah informasi transaksi yang ada"
-                  : "Tambahkan transaksi baru ke sistem"}
+                {editingTagihan
+                  ? "Ubah informasi tagihan yang ada"
+                  : "Tambahkan tagihan baru ke sistem"}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="tagihanId"
+                  name="santriId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tagihan</FormLabel>
-                      {editingTransaksi ? (
+                      <FormLabel>Santri</FormLabel>
+                      {editingTagihan ? (
                         <FormControl>
                           <Input
-                            value={tagihanData?.find(t => t.id === field.value)?.jenisTagihan.name || '-'}
+                            value={santriData?.find(s => s.id === field.value)?.name || '-'}
+                            disabled
+                          />
+                        </FormControl>
+                      ) : (
+                        <Select 
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih santri" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {santriData?.map((santri) => (
+                              <SelectItem key={santri.id} value={santri.id}>
+                                {santri.name} - {santri.kelas?.name} {santri.kelas?.level ? `(${santri.kelas.level})` : ""}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="jenisTagihanId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jenis Tagihan</FormLabel>
+                      {editingTagihan ? (
+                        <FormControl>
+                          <Input
+                            value={jenisTagihanData?.find(j => j.id === field.value)?.name || '-'}
                             disabled
                           />
                         </FormControl>
@@ -856,15 +660,9 @@ export default function TransaksiPage() {
                         <Select 
                           onValueChange={(value) => {
                             field.onChange(value);
-                            const selectedTagihan = tagihanData?.find(t => t.id === value);
-                            if (selectedTagihan) {
-                              form.setValue("amount", selectedTagihan.amount);
-                              // Set status default berdasarkan status tagihan
-                              if (selectedTagihan.status === "overdue") {
-                                form.setValue("status", "rejected");
-                              } else {
-                                form.setValue("status", "pending");
-                              }
+                            const selectedJenisTagihan = jenisTagihanData?.find(j => j.id === value);
+                            if (selectedJenisTagihan) {
+                              form.setValue("amount", selectedJenisTagihan.amount);
                             }
                           }}
                           value={field.value}
@@ -872,16 +670,16 @@ export default function TransaksiPage() {
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Pilih tagihan" />
+                              <SelectValue placeholder="Pilih jenis tagihan" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {tagihanData?.filter(t => t.status === "pending" || t.status === "overdue").map((tagihan) => (
-                              <SelectItem key={tagihan.id} value={tagihan.id}>
-                                {tagihan.santri.name} - {tagihan.jenisTagihan.name} ({new Intl.NumberFormat("id-ID", {
+                            {jenisTagihanData?.map((jenisTagihan) => (
+                              <SelectItem key={jenisTagihan.id} value={jenisTagihan.id}>
+                                {jenisTagihan.name} ({new Intl.NumberFormat("id-ID", {
                                   style: "currency",
                                   currency: "IDR",
-                                }).format(tagihan.amount)}) - {tagihan.status === "overdue" ? "Terlambat" : "Menunggu"}
+                                }).format(jenisTagihan.amount)})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -914,10 +712,10 @@ export default function TransaksiPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="paymentDate"
+                  name="dueDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Tanggal Pembayaran</FormLabel>
+                      <FormLabel>Jatuh Tempo</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -960,33 +758,7 @@ export default function TransaksiPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        value={field.value}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Pilih status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="pending">Menunggu</SelectItem>
-                          <SelectItem value="approved">Disetujui</SelectItem>
-                          <SelectItem value="rejected">Ditolak</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="note"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Deskripsi</FormLabel>
@@ -1007,9 +779,9 @@ export default function TransaksiPage() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={addTransaksiMutation.isPending || updateTransaksiMutation.isPending}
+                    disabled={addTagihanMutation.isPending || updateTagihanMutation.isPending}
                   >
-                    {editingTransaksi ? "Simpan Perubahan" : "Tambah"}
+                    {editingTagihan ? "Simpan Perubahan" : "Tambah"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -1017,37 +789,33 @@ export default function TransaksiPage() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={!!showingDetailTransaksi} onOpenChange={() => setShowingDetailTransaksi(null)}>
+        <Dialog open={!!showingDetailTagihan} onOpenChange={() => setShowingDetailTagihan(null)}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Detail Transaksi</DialogTitle>
+              <DialogTitle>Detail Tagihan</DialogTitle>
               <DialogDescription>
-                Informasi lengkap mengenai transaksi.
+                Informasi lengkap mengenai tagihan.
               </DialogDescription>
             </DialogHeader>
-            {showingDetailTransaksi && (
+            {showingDetailTagihan && (
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4 mb-2">
                   <div className="text-right font-medium">Santri</div>
                   <div className="col-span-3">
                     <div className="font-medium">
-                      {showingDetailTransaksi.santri?.name || 
-                       showingDetailTransaksi.tagihan?.santri?.name || "-"}
+                      {showingDetailTagihan.santri?.name || "-"}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {showingDetailTransaksi.santri?.kelas?.name || 
-                       showingDetailTransaksi.tagihan?.santri?.kelas?.name || "-"} 
-                      {showingDetailTransaksi.santri?.kelas?.level || 
-                       showingDetailTransaksi.tagihan?.santri?.kelas?.level ? 
-                       ` (${showingDetailTransaksi.santri?.kelas?.level || 
-                          showingDetailTransaksi.tagihan?.santri?.kelas?.level})` : ""}
+                      {showingDetailTagihan.santri?.kelas?.name || "-"} 
+                      {showingDetailTagihan.santri?.kelas?.level ? 
+                       ` (${showingDetailTagihan.santri.kelas.level})` : ""}
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4 mb-2">
                   <div className="text-right font-medium">Jenis Tagihan</div>
                   <div className="col-span-3">
-                    {showingDetailTransaksi.tagihan?.jenisTagihan?.name || "-"}
+                    {showingDetailTagihan.jenisTagihan?.name || "-"}
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4 mb-2">
@@ -1056,27 +824,27 @@ export default function TransaksiPage() {
                     {new Intl.NumberFormat("id-ID", {
                       style: "currency",
                       currency: "IDR",
-                    }).format(showingDetailTransaksi.amount)}
+                    }).format(showingDetailTagihan.amount)}
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4 mb-2">
                   <div className="text-right font-medium">Status</div>
                   <div className="col-span-3">
                     <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      showingDetailTransaksi.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                      showingDetailTransaksi.status === "approved" ? "bg-green-100 text-green-800" :
+                      showingDetailTagihan.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                      showingDetailTagihan.status === "paid" ? "bg-green-100 text-green-800" :
                       "bg-red-100 text-red-800"
                     }`}>
-                      {showingDetailTransaksi.status === "pending" ? "Menunggu" :
-                       showingDetailTransaksi.status === "approved" ? "Disetujui" :
-                       "Ditolak"}
+                      {showingDetailTagihan.status === "pending" ? "Menunggu" :
+                       showingDetailTagihan.status === "paid" ? "Lunas" :
+                       "Terlambat"}
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Tanggal Pembayaran</div>
+                  <div className="text-right font-medium">Jatuh Tempo</div>
                   <div className="col-span-3">
-                    {new Date(showingDetailTransaksi.paymentDate).toLocaleDateString("id-ID", {
+                    {new Date(showingDetailTagihan.dueDate).toLocaleDateString("id-ID", {
                       day: "numeric",
                       month: "long",
                       year: "numeric",
@@ -1085,37 +853,37 @@ export default function TransaksiPage() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <div className="text-right font-medium">Deskripsi</div>
-                  <div className="col-span-3">{showingDetailTransaksi.note || "-"}</div>
+                  <div className="col-span-3">{showingDetailTagihan.description || "-"}</div>
                 </div>
               </div>
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => {
-                setEditingTransaksi(showingDetailTransaksi);
+                setEditingTagihan(showingDetailTagihan);
                 setIsDialogOpen(true);
-                setShowingDetailTransaksi(null);
+                setShowingDetailTagihan(null);
               }}>Edit</Button>
-              <Button onClick={() => setShowingDetailTransaksi(null)}>Tutup</Button>
+              <Button onClick={() => setShowingDetailTagihan(null)}>Tutup</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={!!deletingTransaksiId} onOpenChange={() => setDeletingTransaksiId(null)}>
+        <Dialog open={!!deletingTagihanId} onOpenChange={() => setDeletingTagihanId(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Konfirmasi Hapus</DialogTitle>
               <DialogDescription>
-                Apakah Anda yakin ingin menghapus transaksi ini? Tindakan ini tidak dapat dibatalkan.
+                Apakah Anda yakin ingin menghapus tagihan ini? Tindakan ini tidak dapat dibatalkan.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDeletingTransaksiId(null)}>Batal</Button>
+              <Button variant="outline" onClick={() => setDeletingTagihanId(null)}>Batal</Button>
               <Button
                 variant="destructive"
                 onClick={handleDeleteConfirm}
-                disabled={deleteTransaksiMutation.isPending}
+                disabled={deleteTagihanMutation.isPending}
               >
-                {deleteTransaksiMutation.isPending ? "Menghapus..." : "Hapus"}
+                {deleteTagihanMutation.isPending ? "Menghapus..." : "Hapus"}
               </Button>
             </DialogFooter>
           </DialogContent>

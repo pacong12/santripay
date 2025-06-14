@@ -68,6 +68,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { toast } from "sonner";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 interface JenisTagihan {
   id: string;
@@ -350,98 +351,102 @@ export default function JenisTagihanPage() {
   if (errorJenisTagihan) return <div>Terjadi kesalahan: {errorJenisTagihan.message}</div>;
 
   return (
-    <div className="flex h-screen">
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6">
-          <header className="flex h-14 shrink-0 items-center justify-between">
-            <div className="flex items-center gap-2">
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden">
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">Toggle menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="p-0">
-          <AppSidebar />
-        </SheetContent>
-      </Sheet>
-              <Separator orientation="vertical" className="h-8 hidden md:block" />
-              <div className="flex flex-col">
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                      <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator />
-                    <BreadcrumbItem>
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0">
+              <AppSidebar />
+            </SheetContent>
+          </Sheet>
+          <Separator orientation="vertical" className="h-8 hidden md:block" />
+          <div className="flex flex-col">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
                   <BreadcrumbPage>Jenis Tagihan</BreadcrumbPage>
-                    </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
-                <h2 className="text-3xl font-bold tracking-tight">Jenis Tagihan</h2>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <h2 className="text-3xl font-bold tracking-tight">Jenis Tagihan</h2>
+          </div>
+        </div>
+        <Button onClick={handleAddJenisTagihan}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Jenis Tagihan
+        </Button>
+      </header>
+      <div className="flex-1 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center py-4">
+                <Input
+                  placeholder="Filter jenis tagihan..."
+                  value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+                  onChange={(event) =>
+                    table.getColumn("name")?.setFilterValue(event.target.value)
+                  }
+                  className="max-w-sm"
+                />
               </div>
             </div>
-            <Button onClick={handleAddJenisTagihan}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Tambah Jenis Tagihan
-            </Button>
-          </header>
-          <div className="flex-1 space-y-6">
-            <div className="flex items-center py-4">
-              <Input
-                placeholder="Filter jenis tagihan..."
-                value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                  table.getColumn("name")?.setFilterValue(event.target.value)
-                }
-                className="max-w-sm"
-              />
-            </div>
-            <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                  {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => {
+                        return (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        );
+                      })}
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && "selected"}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
                       <TableCell colSpan={columns.length} className="h-24 text-center">
                         Tidak ada hasil.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
             <div className="flex items-center justify-end space-x-2 py-4">
               <div className="flex-1 text-sm text-muted-foreground">
                 {table.getFilteredSelectedRowModel().rows.length} dari{" "}
@@ -466,86 +471,86 @@ export default function JenisTagihanPage() {
                 </Button>
               </div>
             </div>
-        </div>
-      </div>
+          </CardContent>
+        </Card>
 
         <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingJenisTagihan ? "Edit Jenis Tagihan" : "Tambah Jenis Tagihan"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingJenisTagihan
-                  ? "Ubah informasi jenis tagihan yang ada"
-                  : "Tambahkan jenis tagihan baru ke sistem"}
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nama Jenis Tagihan</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Masukkan nama jenis tagihan" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingJenisTagihan ? "Edit Jenis Tagihan" : "Tambah Jenis Tagihan"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingJenisTagihan
+                    ? "Ubah informasi jenis tagihan yang ada"
+                    : "Tambahkan jenis tagihan baru ke sistem"}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Jenis Tagihan</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masukkan nama jenis tagihan" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
                       <FormLabel>Jumlah</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
+                      <FormControl>
+                        <Input
+                          type="number"
                           placeholder="Masukkan jumlah"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Deskripsi</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Masukkan deskripsi (opsional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Deskripsi</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masukkan deskripsi (opsional)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={handleCloseDialog}
-                >
-                  Batal
-                </Button>
-                <Button
-                  type="submit"
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    type="submit"
                     disabled={addJenisTagihanMutation.isPending || updateJenisTagihanMutation.isPending}
-                >
+                  >
                     {editingJenisTagihan ? "Simpan Perubahan" : "Tambah"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={!!showingDetailJenisTagihan} onOpenChange={() => setShowingDetailJenisTagihan(null)}>
           <DialogContent className="sm:max-w-[425px]">
@@ -588,27 +593,27 @@ export default function JenisTagihanPage() {
         </Dialog>
 
         <Dialog open={!!deletingJenisTagihanId} onOpenChange={() => setDeletingJenisTagihanId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Konfirmasi Hapus</DialogTitle>
-            <DialogDescription>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Konfirmasi Hapus</DialogTitle>
+              <DialogDescription>
                 Apakah Anda yakin ingin menghapus jenis tagihan ini? Tindakan ini tidak dapat dibatalkan dan akan
                 memengaruhi tagihan yang terkait dengan jenis tagihan ini.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
               <Button variant="outline" onClick={() => setDeletingJenisTagihanId(null)}>Batal</Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-              disabled={deleteJenisTagihanMutation.isPending}
-            >
-              {deleteJenisTagihanMutation.isPending ? "Menghapus..." : "Hapus"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-            </div>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteConfirm}
+                disabled={deleteJenisTagihanMutation.isPending}
+              >
+                {deleteJenisTagihanMutation.isPending ? "Menghapus..." : "Hapus"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 } 

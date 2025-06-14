@@ -32,7 +32,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -181,12 +180,23 @@ export function NavUser() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg">
-              <Avatar className="size-8">
-                <AvatarImage src={session.user.image || ""} alt={session.user.name || ""} />
-                <AvatarFallback>
-                  {session.user.name?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="size-9 border-2 border-border transition-all duration-200 hover:border-primary">
+                  <AvatarImage 
+                    src={session.user.image || ""} 
+                    alt={session.user.name || ""} 
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {session.user.name?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white ring-2 ring-background">
+                    {unreadCount}
+                  </div>
+                )}
+              </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{session.user.name || "Admin"}</span>
                   <span className="truncate text-xs">{session.user.email || "admin@example.com"}</span>

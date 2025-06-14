@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Menu, User, Mail, Phone, MapPin, School, Moon, Sun, Bell, Settings } from "lucide-react";
+import { Loader2, Menu, User, Mail, Phone, MapPin, School, Moon, Sun, Bell, Settings, LogOut } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SantriSidebar } from "@/components/santri/santri-sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -190,6 +190,7 @@ export default function ProfilPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
+         
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="hidden md:flex">
@@ -259,6 +260,21 @@ export default function ProfilPage() {
                       />
                     </div>
                   </div>
+                </div>
+                <Separator />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <LogOut className="size-4" />
+                    <h4 className="text-sm font-medium">Akun</h4>
+                  </div>
+                  <Button 
+                    variant="destructive" 
+                    className="w-full"
+                    onClick={() => signOut({ callbackUrl: "/auth/login" })}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Keluar
+                  </Button>
                 </div>
               </div>
             </DialogContent>
@@ -331,6 +347,21 @@ export default function ProfilPage() {
                       />
                     </div>
                   </div>
+                </div>
+                <Separator />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <LogOut className="size-4" />
+                    <h4 className="text-sm font-medium">Akun</h4>
+                  </div>
+                  <Button 
+                    variant="destructive" 
+                    className="w-full"
+                    onClick={() => signOut({ callbackUrl: "/auth/login" })}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Keluar
+                  </Button>
                 </div>
               </div>
             </DialogContent>
