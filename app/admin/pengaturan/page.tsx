@@ -38,7 +38,6 @@ import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useTheme } from "next-themes";
 
 interface PengaturanResponse {
@@ -203,7 +202,6 @@ export default function PengaturanPage() {
             <h2 className="text-3xl font-bold tracking-tight">Pengaturan</h2>
           </div>
         </div>
-        <ModeToggle />
       </header>
     
       <div className="flex-1 space-y-6">
@@ -216,6 +214,23 @@ export default function PengaturanPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="space-y-6 py-6">
+                <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <div className="text-base font-medium">
+                      Mode Gelap
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Aktifkan mode gelap untuk tampilan yang lebih nyaman di malam hari
+                    </div>
+                  </div>
+                  <Switch
+                    checked={theme === "dark"}
+                    onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                  />
+                </div>
+              </div>
+           
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
@@ -338,47 +353,11 @@ export default function PengaturanPage() {
               </Form>
             </CardContent>
           </Card>
+          
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tema Aplikasi</CardTitle>
-              <CardDescription>
-                Atur tampilan aplikasi sesuai preferensi Anda
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <div className="text-base font-medium">Mode Gelap</div>
-                    <div className="text-sm text-muted-foreground">
-                      Aktifkan mode gelap untuk tampilan yang lebih nyaman di malam hari
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant={theme === "light" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTheme("light")}
-                    >
-                      <Sun className="h-4 w-4 mr-2" />
-                      Terang
-                    </Button>
-                    <Button
-                      variant={theme === "dark" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTheme("dark")}
-                    >
-                      <Moon className="h-4 w-4 mr-2" />
-                      Gelap
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+   
+
 
           <Card>
             <CardHeader>
@@ -411,6 +390,5 @@ export default function PengaturanPage() {
           </Card>
         </div>
       </div>
-    </div>
   );
 } 

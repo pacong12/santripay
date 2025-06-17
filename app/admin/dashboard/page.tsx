@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { ModeToggle } from "@/components/ui/mode-toggle";
+
 import { toast } from "sonner";
 import {
   Table,
@@ -203,7 +205,10 @@ export default function DashboardAdminPage() {
             <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           </div>
         </div>
+
         <div className="flex items-center gap-4">
+        <ModeToggle />
+
           <Popover>
             <PopoverTrigger asChild>
               <Button 

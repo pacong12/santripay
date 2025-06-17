@@ -62,6 +62,7 @@ interface Transaksi {
   status: string;
   paymentDate: string;
   tagihan: {
+    id: string;
     jenisTagihan: {
       name: string;
     };
@@ -72,7 +73,6 @@ interface Statistik {
   totalTagihan: number;
   totalDibayar: number;
   totalMenunggu: number;
-  totalTerlambat: number;
 }
 
 interface Notifikasi {
@@ -165,15 +165,11 @@ export default function DashboardSantriPage() {
     const totalMenunggu = tagihan
       ?.filter(t => t.status === "pending")
       .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-    const totalTerlambat = tagihan
-      ?.filter(t => t.status === "overdue")
-      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-
+    
     return {
       totalTagihan,
       totalDibayar,
       totalMenunggu,
-      totalTerlambat,
     };
   };
 
@@ -233,13 +229,51 @@ export default function DashboardSantriPage() {
     }
   };
 
+  // Fungsi untuk mengecek apakah tagihan sudah memiliki transaksi
+  const hasTransaction = (tagihanId: string) => {
+    return transaksi.some(
+      (t: Transaksi) => t.tagihan.id === tagihanId && (t.status === "pending" || t.status === "approved")
+    );
+  };
+
+  const getStatusBadge = (status: string, hasExistingTransaction: boolean, dueDate: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDateObj = new Date(dueDate);
+    dueDateObj.setHours(0, 0, 0, 0);
+    const isOverdue = dueDateObj < today && status === "pending";
+    
+    if (status === "paid") {
+      return (
+        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+          Terbayar
+        </Badge>
+      );
+    }
+    if (hasExistingTransaction) {
+      return (
+        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+          Menunggu Konfirmasi
+        </Badge>
+      );
+    }
+    if (isOverdue) {
+      return (
+        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+          Terlambat
+        </Badge>
+      );
+    }
+    return null;
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Memuat data...</div>;
   }
 
   return (
-    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6">
-      <header className="flex h-14 shrink-0 items-center justify-between">
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
         <div className="flex items-center gap-2">
           <Sheet>
             <SheetTrigger asChild>
@@ -254,14 +288,14 @@ export default function DashboardSantriPage() {
           </Sheet>
           <Separator orientation="vertical" className="h-8 hidden md:block" />
           <div className="flex flex-col">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h2>
+            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
           <ModeToggle />
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="hidden md:flex " >
+              <Button variant="outline" size="sm" className="hidden md:flex">
                 <Bell className="mr-2 h-4 w-4" />
                 Notifikasi
                 {notifikasi.filter((n) => !n.isRead).length > 0 && (
@@ -272,7 +306,7 @@ export default function DashboardSantriPage() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
-              <div className="flex items-center justify-between ">
+              <div className="flex items-center justify-between">
                 <h4 className="font-medium">Notifikasi</h4>
                 <Button
                   variant="ghost"
@@ -316,87 +350,13 @@ export default function DashboardSantriPage() {
                             <p className="text-sm text-muted-foreground">
                               {item.message}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                               {formatDistanceToNow(new Date(item.createdAt), {
-                                addSuffix: true,
-                                locale: id,
-                              })}
-                            </p>
-                          </div>
-                          {!item.isRead && (
-                            <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
-                          )}
+                              addSuffix: true,
+                              locale: id,
+                            })}
+                          </p>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="md:hidden">
-                <Bell className="h-4 w-4" />
-                {notifikasi.filter((n) => !n.isRead).length > 0 && (
-                  <Badge variant="destructive" className="ml-2">
-                    {notifikasi.filter((n) => !n.isRead).length}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[calc(100vw-2rem)]" align="end">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">Notifikasi</h4>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    notifikasi.forEach((n) => {
-                      if (!n.isRead) {
-                        markAsRead.mutate({ id: n.id, isRead: true });
-                      }
-                    });
-                  }}
-                >
-                  Tandai semua dibaca
-                </Button>
-              </div>
-              <ScrollArea className="h-[calc(100vh-12rem)]">
-                {notifikasi.length === 0 ? (
-                  <div className="flex h-32 items-center justify-center">
-                    <p className="text-sm text-muted-foreground">Tidak ada notifikasi</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4 p-4">
-                    {notifikasi.map((item) => (
-                      <div
-                        key={item.id}
-                        className={cn(
-                          "flex cursor-pointer flex-col items-start gap-1 rounded-lg p-3 transition-colors hover:bg-accent hover:text-accent-foreground",
-                          !item.isRead && "bg-muted"
-                        )}
-                        onClick={() => {
-                          if (!item.isRead) {
-                            markAsRead.mutate({ id: item.id, isRead: true });
-                          }
-                        }}
-                      >
-                        <div className="flex w-full items-start justify-between gap-2">
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium leading-none">
-                              {item.title}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.message}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(item.createdAt), {
-                                addSuffix: true,
-                                locale: id,
-                              })}
-                            </p>
-                          </div>
                           {!item.isRead && (
                             <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
                           )}
@@ -411,7 +371,8 @@ export default function DashboardSantriPage() {
         </div>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="flex-1 space-y-6">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Tagihan</CardTitle>
@@ -445,20 +406,10 @@ export default function DashboardSantriPage() {
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Terlambat</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-            <div className="text-2xl font-bold">
-              Rp {statistik.totalTerlambat.toLocaleString("id-ID")}
-              </div>
-            </CardContent>
-          </Card>
+         
         </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2">
         <Card>
             <CardHeader>
             <CardTitle>Tagihan Terbaru</CardTitle>
@@ -470,42 +421,80 @@ export default function DashboardSantriPage() {
                   <p className="text-sm text-muted-foreground">Tidak ada tagihan</p>
                 </div>
               ) : (
-                tagihan.slice(0, 5).map((t) => (
+                tagihan
+                  .sort((a, b) => {
+                    // Prioritaskan tagihan yang belum dibayar
+                    if (a.status === "pending" && b.status !== "pending") return -1;
+                    if (a.status !== "pending" && b.status === "pending") return 1;
+                    
+                    // Jika status sama, urutkan berdasarkan tanggal jatuh tempo
+                    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                  })
+                  .slice(0, 5)
+                  .map((t: Tagihan) => {
+                    const hasExistingTransaction = hasTransaction(t.id);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dueDate = new Date(t.dueDate);
+                    dueDate.setHours(0, 0, 0, 0);
+                    const isOverdue = dueDate < today && t.status === "pending";
+                    
+                    return (
                   <div
                     key={t.id}
-                    className="flex items-center justify-between rounded-lg border p-4"
+                        className={cn(
+                          "flex items-center justify-between p-4 border rounded-lg hover:bg-accent/20 transition-colors",
+                          isOverdue && "border-red-200 bg-red-50/10"
+                        )}
                   >
                     <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Receipt className={cn(
+                              "h-4 w-4",
+                              isOverdue ? "text-red-500" : "text-muted-foreground"
+                            )} />
                       <p className="text-sm font-medium leading-none">
                         {t.jenisTagihan.name}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        Jatuh tempo: {new Date(t.dueDate).toLocaleDateString("id-ID")}
-                      </p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <p className={cn(
+                              "text-sm",
+                              isOverdue ? "text-red-600" : "text-muted-foreground"
+                            )}>
+                              Jatuh tempo: {new Date(t.dueDate).toLocaleDateString("id-ID", {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric"
+                              })}
+                            </p>
+                            {isOverdue && (
+                              <p className="text-xs text-red-600">
+                                Tagihan ini telah melewati batas waktu pembayaran
+                              </p>
+                            )}
+                          </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="text-sm font-medium">
                           Rp {Number(t.amount).toLocaleString("id-ID")}
                         </p>
-                        <Badge
-                          variant="outline"
-                          className={cn("mt-1", getStatusColor(t.status))}
-                        >
-                            {getStatusText(t.status)}
-                          </Badge>
+                            {getStatusBadge(t.status, hasExistingTransaction, new Date(t.dueDate))}
                       </div>
-                      {t.status === "pending" && (
+                          {t.status === "pending" && !hasExistingTransaction && (
                           <Button
                             size="sm"
                           onClick={() => router.push(`/santri/pembayaran?tagihan=${t.id}`)}
+                              variant={isOverdue ? "destructive" : "default"}
                           >
                             Bayar
                           </Button>
                       )}
                     </div>
                   </div>
-                ))
+                    );
+                  })
               )}
             </div>
             </CardContent>
@@ -522,15 +511,21 @@ export default function DashboardSantriPage() {
                   <p className="text-sm text-muted-foreground">Tidak ada transaksi</p>
                 </div>
               ) : (
-                transaksi.slice(0, 5).map((t) => (
+                transaksi
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 5)
+                  .map((t: Transaksi) => (
                   <div
                     key={t.id}
-                    className="flex items-center justify-between rounded-lg border p-4"
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                   >
                     <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-muted-foreground" />
                       <p className="text-sm font-medium leading-none">
                         {t.tagihan.jenisTagihan.name}
                       </p>
+                        </div>
                       <p className="text-sm text-muted-foreground">
                         {new Date(t.paymentDate).toLocaleDateString("id-ID")}
                       </p>
@@ -552,6 +547,7 @@ export default function DashboardSantriPage() {
             </div>
             </CardContent>
           </Card>
+        </div>
       </div>
     </div>
   );
