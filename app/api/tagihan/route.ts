@@ -11,6 +11,7 @@ const tagihanSchema = z.object({
   amount: z.number().min(0, "Jumlah harus lebih dari atau sama dengan 0"),
   dueDate: z.string().min(1, "Tanggal jatuh tempo harus diisi"),
   description: z.string().optional(),
+  tahunAjaranId: z.string().uuid("ID Tahun Ajaran tidak valid").optional(),
 });
 
 export async function GET() {
@@ -31,6 +32,7 @@ export async function GET() {
           },
         },
         jenisTagihan: true,
+        tahunAjaran: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -56,6 +58,11 @@ export async function GET() {
         createdAt: t.jenisTagihan.createdAt.toISOString(),
         updatedAt: t.jenisTagihan.updatedAt.toISOString(),
       },
+      tahunAjaran: t.tahunAjaran ? {
+        ...t.tahunAjaran,
+        createdAt: t.tahunAjaran.createdAt.toISOString(),
+        updatedAt: t.tahunAjaran.updatedAt.toISOString(),
+      } : undefined,
     }));
 
     return NextResponse.json(serializedTagihan);
@@ -124,6 +131,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // Tentukan tahun ajaran
+    let tahunAjaranId = validatedData.tahunAjaranId;
+    if (!tahunAjaranId) {
+      const aktif = await prisma.tahunAjaran.findFirst({ where: { aktif: true } });
+      tahunAjaranId = aktif?.id;
+    }
+    if (!tahunAjaranId) {
+      return NextResponse.json({ message: "Tahun ajaran tidak ditemukan" }, { status: 400 });
+    }
+
     // Create tagihan
     const tagihan = await prisma.$transaction(async (tx) => {
       const newTagihan = await tx.tagihan.create({
@@ -134,7 +151,8 @@ export async function POST(request: Request) {
           dueDate: new Date(validatedData.dueDate),
           description: validatedData.description,
           status: "pending",
-        },
+          tahunAjaranId: tahunAjaranId,
+        } as Prisma.TagihanUncheckedCreateInput,
         include: {
           santri: {
             include: {
@@ -143,15 +161,16 @@ export async function POST(request: Request) {
             },
           },
           jenisTagihan: true,
+          tahunAjaran: true,
         },
       });
 
       // Buat notifikasi untuk santri
-      if (newTagihan.santri.user) {
+      if (newTagihan.santri?.user) {
         const notifikasiData: Prisma.NotifikasiUncheckedCreateInput = {
           userId: newTagihan.santri.user.id,
           title: "Tagihan Baru",
-          message: `Anda memiliki tagihan baru untuk ${newTagihan.jenisTagihan.name} sebesar Rp ${Number(validatedData.amount).toLocaleString('id-ID')} dengan jatuh tempo ${new Date(validatedData.dueDate).toLocaleDateString('id-ID')}`,
+          message: `Anda memiliki tagihan baru untuk ${newTagihan.jenisTagihan?.name} sebesar Rp ${Number(validatedData.amount).toLocaleString('id-ID')} dengan jatuh tempo ${new Date(validatedData.dueDate).toLocaleDateString('id-ID')}`,
           type: "tagihan_baru"
         };
         await tx.notifikasi.create({
@@ -170,17 +189,22 @@ export async function POST(request: Request) {
       createdAt: tagihan.createdAt.toISOString(),
       updatedAt: tagihan.updatedAt.toISOString(),
       dueDate: tagihan.dueDate.toISOString(),
-      santri: {
+      santri: tagihan.santri ? {
         ...tagihan.santri,
         createdAt: tagihan.santri.createdAt.toISOString(),
         updatedAt: tagihan.santri.updatedAt.toISOString(),
-      },
-      jenisTagihan: {
+      } : undefined,
+      jenisTagihan: tagihan.jenisTagihan ? {
         ...tagihan.jenisTagihan,
         amount: tagihan.jenisTagihan.amount ? Number(tagihan.jenisTagihan.amount) : null,
         createdAt: tagihan.jenisTagihan.createdAt.toISOString(),
         updatedAt: tagihan.jenisTagihan.updatedAt.toISOString(),
-      },
+      } : undefined,
+      tahunAjaran: tagihan.tahunAjaran ? {
+        ...tagihan.tahunAjaran,
+        createdAt: tagihan.tahunAjaran.createdAt.toISOString(),
+        updatedAt: tagihan.tahunAjaran.updatedAt.toISOString(),
+      } : undefined,
     };
 
     return NextResponse.json({
@@ -230,6 +254,7 @@ export async function PUT(req: Request) {
           },
         },
         jenisTagihan: true,
+        tahunAjaran: true,
       },
     });
 
@@ -252,6 +277,11 @@ export async function PUT(req: Request) {
         createdAt: updatedTagihan.jenisTagihan.createdAt.toISOString(),
         updatedAt: updatedTagihan.jenisTagihan.updatedAt.toISOString(),
       },
+      tahunAjaran: updatedTagihan.tahunAjaran ? {
+        ...updatedTagihan.tahunAjaran,
+        createdAt: updatedTagihan.tahunAjaran.createdAt.toISOString(),
+        updatedAt: updatedTagihan.tahunAjaran.updatedAt.toISOString(),
+      } : undefined,
     };
 
     return NextResponse.json(serializedTagihan, { status: 200 });

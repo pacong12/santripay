@@ -67,14 +67,32 @@ async function main() {
   });
   console.log("User santri berhasil dibuat");
 
+  // Buat Tahun Ajaran
+  const tahunAjaran2024 = await prisma.tahunAjaran.create({
+    data: { name: "2024/2025", aktif: true },
+  });
+  const tahunAjaran2023 = await prisma.tahunAjaran.create({
+    data: { name: "2023/2024", aktif: false },
+  });
+  console.log("Tahun ajaran berhasil dibuat");
+
   // Buat data Kelas
   const kelas1 = await prisma.kelas.create({
-    data: { name: "1A", level: "Tsanawiyah" },
+    data: { name: "1A", level: "Tsanawiyah", tahunAjaranId: tahunAjaran2024.id },
   });
   const kelas2 = await prisma.kelas.create({
-    data: { name: "2B", level: "Aliyah" },
+    data: { name: "2B", level: "Aliyah", tahunAjaranId: tahunAjaran2024.id },
   });
   console.log("Kelas berhasil dibuat");
+
+  // Buat data Kelas untuk tahun ajaran 2023/2024
+  const kelas1_2023 = await prisma.kelas.create({
+    data: { name: "1A", level: "Tsanawiyah", tahunAjaranId: tahunAjaran2023.id },
+  });
+  const kelas2_2023 = await prisma.kelas.create({
+    data: { name: "2B", level: "Aliyah", tahunAjaranId: tahunAjaran2023.id },
+  });
+  console.log("Kelas tahun ajaran 2023/2024 berhasil dibuat");
 
   // Buat data Santri
   const santriAhmad = await prisma.santri.create({
@@ -151,6 +169,7 @@ async function main() {
       dueDate: new Date("2025-07-01"),
       status: StatusTagihan.pending,
       description: "Iuran bulanan Juli 2025",
+      tahunAjaranId: tahunAjaran2024.id,
     },
   });
 
@@ -162,6 +181,7 @@ async function main() {
       dueDate: new Date("2025-06-15"),
       status: StatusTagihan.paid,
       description: "Biaya kegiatan tahunan 2025",
+      tahunAjaranId: tahunAjaran2024.id,
     },
   });
 
@@ -174,6 +194,7 @@ async function main() {
       dueDate: new Date("2025-07-01"),
       status: StatusTagihan.pending,
       description: "Iuran bulanan Juli 2025",
+      tahunAjaranId: tahunAjaran2024.id,
     },
   });
 
@@ -185,6 +206,7 @@ async function main() {
       dueDate: new Date("2025-06-20"),
       status: StatusTagihan.paid,
       description: "Biaya buku pelajaran semester 1",
+      tahunAjaranId: tahunAjaran2024.id,
     },
   });
 
@@ -197,6 +219,7 @@ async function main() {
       dueDate: new Date("2025-07-01"),
       status: StatusTagihan.pending,
       description: "Iuran bulanan Juli 2025",
+      tahunAjaranId: tahunAjaran2024.id,
     },
   });
 
@@ -208,6 +231,7 @@ async function main() {
       dueDate: new Date("2025-06-25"),
       status: StatusTagihan.pending,
       description: "Biaya seragam pesantren",
+      tahunAjaranId: tahunAjaran2024.id,
     },
   });
   console.log("Data tagihan berhasil dibuat");
@@ -267,6 +291,41 @@ async function main() {
     },
   });
   console.log("Data notifikasi berhasil dibuat");
+
+  // Buat tagihan untuk Ahmad di tahun ajaran 2023/2024
+  await prisma.tagihan.create({
+    data: {
+      santriId: santriAhmad.id,
+      jenisTagihanId: iuranBulanan.id,
+      amount: BigInt(150000),
+      dueDate: new Date("2024-07-01"),
+      status: StatusTagihan.paid,
+      description: "Iuran bulanan Juli 2024",
+      tahunAjaranId: tahunAjaran2023.id,
+    },
+  });
+
+  // Buat riwayat kelas untuk Ahmad (dari kelas1_2023 ke kelas1 di tahun ajaran 2024/2025)
+  await prisma.riwayatKelas.create({
+    data: {
+      santriId: santriAhmad.id,
+      kelasLamaId: kelas1_2023.id,
+      kelasBaruId: kelas1.id,
+      tanggal: new Date("2024-07-15"),
+    },
+  });
+
+  // Buat notifikasi naik kelas untuk Ahmad
+  await prisma.notifikasi.create({
+    data: {
+      userId: userSantri1.id,
+      title: "Kenaikan Kelas",
+      message: "Selamat! Anda telah naik kelas dari 1A ke 1A (Tsanawiyah)",
+      type: JenisNotifikasi.naik_kelas,
+      isRead: false,
+      role: "santri",
+    },
+  });
 }
 
 main()

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { User, Santri, Kelas } from "@prisma/client"; // Import Prisma generated types
+import jwt from "jsonwebtoken";
 
 // Define a more specific type based on the Prisma query's select for GET
 type UserWithSantriAndKelasAndNotifications = User & {
@@ -27,21 +28,38 @@ const updateProfileSchema = z.object({
   receiveAppNotifications: z.boolean().optional(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    let email: string | undefined = undefined;
+    // Cek Bearer token di header
+    const authHeader = req.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const payload: any = jwt.verify(token, process.env.JWT_SECRET || "secret");
+        email = payload?.email;
+      } catch (e) {
+        return NextResponse.json(
+          { message: "Unauthorized" },
+          { status: 401 }
+        );
+      }
+    } else {
+      // Fallback ke session NextAuth
     const session = await getServerSession(authOptions);
-
     if (!session?.user) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
       );
+      }
+      email = session.user.email;
     }
 
     // Ambil data user dan santri
     const user = (await prisma.user.findUnique({
       where: {
-        email: session.user.email!,
+        email: email!,
       },
       include: {
         santri: {
@@ -50,7 +68,7 @@ export async function GET() {
           },
         },
       },
-    })) as UserWithSantriAndKelasAndNotifications; // Type assertion here
+    })) as UserWithSantriAndKelasAndNotifications;
 
     if (!user || !user.santri || !user.santri.kelas) {
       return NextResponse.json(
@@ -86,13 +104,30 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
+    let email: string | undefined = undefined;
+    // Cek Bearer token di header
+    const authHeader = req.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const payload: any = jwt.verify(token, process.env.JWT_SECRET || "secret");
+        email = payload?.email;
+      } catch (e) {
+        return NextResponse.json(
+          { message: "Unauthorized" },
+          { status: 401 }
+        );
+      }
+    } else {
+      // Fallback ke session NextAuth
     const session = await getServerSession(authOptions);
-
     if (!session?.user) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
       );
+      }
+      email = session.user.email;
     }
 
     const body = await req.json();
@@ -101,12 +136,12 @@ export async function PATCH(req: Request) {
     // Update data santri dan user (untuk preferensi notifikasi)
     const user = (await prisma.user.findUnique({
       where: {
-        email: session.user.email!,
+        email: email!,
       },
       include: {
         santri: true,
       },
-    })) as UserWithSantriAndNotifications; // Type assertion here
+    })) as UserWithSantriAndNotifications;
 
     if (!user || !user.santri) {
       return NextResponse.json(

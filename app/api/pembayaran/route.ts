@@ -42,12 +42,28 @@ function serializeBigInt(data: any): any {
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+    let userId: string | undefined = undefined;
+    // Cek Bearer token di header
+    const authHeader = request.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const payload: any = require("jsonwebtoken").verify(token, process.env.JWT_SECRET || "secret");
+        userId = payload?.id;
+      } catch (e) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      }
+    } else {
+      // Fallback ke session NextAuth
+      const session = await getServerSession(authOptions);
+      if (!session?.user) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      }
+      userId = session.user.id;
+    }
+
+    if (!userId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -75,7 +91,7 @@ export async function POST(request: Request) {
     }
 
     // Verifikasi bahwa santri yang login adalah pemilik tagihan
-    if (tagihan.santri.user.id !== session.user.id) {
+    if (tagihan.santri.user.id !== userId) {
       return NextResponse.json(
         { message: "Anda tidak memiliki akses untuk membayar tagihan ini" },
         { status: 403 }

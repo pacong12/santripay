@@ -68,16 +68,25 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface Kelas {
   id: string;
   name: string;
   level?: string;
+  tahunAjaran?: { id: string; name: string };
+}
+
+interface TahunAjaran {
+  id: string;
+  name: string;
+  aktif: boolean;
 }
 
 const kelasFormSchema = z.object({
   name: z.string().min(1, "Nama kelas tidak boleh kosong"),
   level: z.string().optional(),
+  tahunAjaranId: z.string().optional(),
 });
 
 export default function KelasPage() {
@@ -99,17 +108,24 @@ export default function KelasPage() {
     defaultValues: {
       name: "",
       level: "",
+      tahunAjaranId: "",
     },
   });
 
-  // Query hooks
+  // Query kelas tanpa filter tahun ajaran
   const {
     data: kelasData,
     isLoading: isLoadingKelas,
     error: errorKelas,
   } = useQuery<Kelas[]>({ 
     queryKey: ["kelas"], 
-    queryFn: () => fetch("/api/kelas").then((res) => res.json()) 
+    queryFn: () => fetch("/api/kelas").then((res) => res.json()),
+  });
+
+  // Query tahun ajaran
+  const { data: tahunAjaranList = [], isLoading: loadingTahunAjaran } = useQuery<TahunAjaran[]>({
+    queryKey: ["tahun-ajaran"],
+    queryFn: () => fetch("/api/tahun-ajaran").then((res) => res.json()),
   });
 
   // Mutation hooks
@@ -119,11 +135,18 @@ export default function KelasPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newKelas),
-      }).then((res) => res.json()),
+      }).then((res) => {
+        if (!res.ok) throw new Error("Gagal menambah kelas");
+        return res.json();
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kelas"] });
       setIsDialogOpen(false);
       setEditingKelas(null);
+      toast.success("Kelas berhasil ditambahkan");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Gagal menambah kelas");
     },
   });
 
@@ -133,11 +156,18 @@ export default function KelasPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedKelas),
-      }).then((res) => res.json()),
+      }).then((res) => {
+        if (!res.ok) throw new Error("Gagal mengedit kelas");
+        return res.json();
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kelas"] });
       setIsDialogOpen(false);
       setEditingKelas(null);
+      toast.success("Kelas berhasil diedit");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Gagal mengedit kelas");
     },
   });
 
@@ -145,10 +175,17 @@ export default function KelasPage() {
     mutationFn: (id: string) =>
       fetch(`/api/kelas/${id}`, {
         method: "DELETE",
-      }).then((res) => res.json()),
+      }).then((res) => {
+        if (!res.ok) throw new Error("Gagal menghapus kelas");
+        return res.json();
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kelas"] });
       setDeletingKelasId(null);
+      toast.success("Kelas berhasil dihapus");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Gagal menghapus kelas");
     },
   });
 
@@ -158,6 +195,7 @@ export default function KelasPage() {
       form.reset({
         name: editingKelas.name,
         level: editingKelas.level || "",
+        tahunAjaranId: editingKelas.tahunAjaran?.id || "",
       });
     } else {
       form.reset();
@@ -204,6 +242,13 @@ export default function KelasPage() {
       accessorKey: "level",
       header: "Level",
       cell: ({ row }: { row: Row<Kelas> }) => <div className="lowercase">{row.getValue<string | undefined>("level") || "-"}</div>,
+    },
+    {
+      accessorKey: "tahunAjaran",
+      header: "Tahun Ajaran",
+      cell: ({ row }: { row: Row<Kelas> }) => (
+        <span>{row.original.tahunAjaran?.name || "-"}</span>
+      ),
     },
     {
       id: "actions",
@@ -263,6 +308,7 @@ export default function KelasPage() {
     form.reset({
       name: "",
       level: "",
+      tahunAjaranId: tahunAjaranList.find((t) => t.aktif)?.id || tahunAjaranList[0]?.id || "",
     });
     setIsDialogOpen(true);
   };
@@ -272,18 +318,13 @@ export default function KelasPage() {
     form.reset({
       name: kelas.name,
       level: kelas.level || "",
+      tahunAjaranId: kelas.tahunAjaran?.id || tahunAjaranList[0]?.id || "",
     });
     setIsDialogOpen(true);
   };
 
   const confirmDeleteKelas = (id: string) => {
     setDeletingKelasId(id);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deletingKelasId) {
-      deleteKelasMutation.mutate(deletingKelasId);
-    }
   };
 
   const handleDetailKelas = (kelas: Kelas) => {
@@ -333,7 +374,7 @@ export default function KelasPage() {
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center py-4">
+              <div className="flex items-center py-4 gap-2">
                 <Input
                   placeholder="Filter kelas..."
                   value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
@@ -456,6 +497,32 @@ export default function KelasPage() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="tahunAjaranId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tahun Ajaran</FormLabel>
+                    <FormControl>
+                      <select
+                        className="border rounded px-2 py-1 w-full"
+                        {...field}
+                        value={field.value || tahunAjaranList.find((t) => t.aktif)?.id || tahunAjaranList[0]?.id || ""}
+                        onChange={field.onChange}
+                        disabled={loadingTahunAjaran}
+                      >
+                        <option value="" disabled>Pilih tahun ajaran</option>
+                        {tahunAjaranList.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} {t.aktif ? "(Aktif)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <DialogFooter>
                 <Button type="submit" disabled={addKelasMutation.isPending || updateKelasMutation.isPending}>
                   {addKelasMutation.isPending || updateKelasMutation.isPending ? "Menyimpan..." : "Simpan"}
@@ -480,9 +547,13 @@ export default function KelasPage() {
                 <div className="text-right font-medium">Nama Kelas</div>
                 <div className="col-span-3">{showingDetailKelas.name}</div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+              <div className="grid grid-cols-4 items-center gap-4 mb-2">
                 <div className="text-right font-medium">Level</div>
                 <div className="col-span-3">{showingDetailKelas.level || "-"}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                <div className="text-right font-medium">Tahun Ajaran</div>
+                <div className="col-span-3">{showingDetailKelas.tahunAjaran?.name || "-"}</div>
               </div>
             </div>
           )}
@@ -510,7 +581,14 @@ export default function KelasPage() {
             <Button variant="outline" onClick={() => setDeletingKelasId(null)}>Batal</Button>
             <Button 
               variant="destructive" 
-              onClick={handleDeleteConfirm}
+              onClick={() => {
+                if (deletingKelasId) {
+                  deleteKelasMutation.mutate(deletingKelasId, {
+                    onSuccess: () => setDeletingKelasId(null),
+                    onError: (err: any) => toast.error(err.message || "Gagal menghapus kelas"),
+                  });
+                }
+              }}
               disabled={deleteKelasMutation.isPending}
             >
               {deleteKelasMutation.isPending ? "Menghapus..." : "Hapus"}

@@ -7,6 +7,7 @@ import { z } from "zod";
 const kelasSchema = z.object({
   name: z.string().min(1, "Nama kelas tidak boleh kosong").optional(),
   level: z.string().optional(),
+  tahunAjaranId: z.string().min(1, "Tahun ajaran wajib dipilih").optional(),
 });
 
 interface Params {
@@ -61,6 +62,12 @@ export async function PUT(req: Request, context: { params: Promise<Params> }) {
     const updatedKelas = await prisma.kelas.update({
       where: { id },
       data: validatedData,
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        tahunAjaran: { select: { id: true, name: true, aktif: true } },
+      },
     });
 
     return NextResponse.json(updatedKelas, { status: 200 });

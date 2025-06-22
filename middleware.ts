@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { NextRequestWithAuth } from "next-auth/middleware";
+import { jwtVerify } from "jose";
 
 export default async function middleware(request: NextRequestWithAuth) {
   // Izinkan request ke NextAuth
@@ -8,6 +9,26 @@ export default async function middleware(request: NextRequestWithAuth) {
     return NextResponse.next();
   }
 
+  // Cek Bearer token di header Authorization untuk API routes
+  const authHeader = request.headers.get("authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    try {
+      const { payload } = await jwtVerify(
+        token,
+        new TextEncoder().encode(process.env.JWT_SECRET || "secret")
+      );
+      return NextResponse.next();
+    } catch (e) {
+      // Untuk API routes, kembalikan 401 Unauthorized
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return new NextResponse("Unauthorized", { status: 401 });
+      }
+      // Untuk web routes, lanjut ke pengecekan session/cookie
+    }
+  }
+
+  // Fallback ke session/cookie (NextAuth) untuk web routes
   const token = await getToken({ req: request });
   const isAuthPage = request.nextUrl.pathname.startsWith("/auth/login") || 
                     request.nextUrl.pathname.startsWith("/auth/register");

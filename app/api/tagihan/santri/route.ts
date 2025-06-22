@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import jwt from "jsonwebtoken";
 
 // Fungsi untuk mengkonversi BigInt ke string
 function serializeBigInt(data: any): any {
@@ -32,24 +33,53 @@ function serializeBigInt(data: any): any {
   return data;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
+    // Ambil token dari header Authorization
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
+    const token = authHeader.split(" ")[1];
+    let email: string | undefined = undefined;
+    try {
+      const payload: any = jwt.verify(token, process.env.JWT_SECRET || "secret");
+      email = payload?.email;
+    } catch (e) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    if (!email) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    // Ambil query param tahunAjaranId
+    const { searchParams } = new URL(req.url);
+    const tahunAjaranId = searchParams.get('tahunAjaranId');
 
     const tagihan = await prisma.tagihan.findMany({
       where: {
         santri: {
           user: {
-            email: session.user.email,
+            email: email,
           },
         },
+        ...(tahunAjaranId ? { tahunAjaranId } : {}),
       },
       include: {
         jenisTagihan: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        transaksi: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+        tahunAjaran: {
           select: {
             id: true,
             name: true,
@@ -61,7 +91,16 @@ export async function GET() {
       },
     });
 
-    const serializedTagihan = serializeBigInt(tagihan);
+    // Tambahkan field hasTransaction pada setiap tagihan
+    const tagihanWithTransaction = tagihan.map((t: any) => {
+      const hasTransaction = t.transaksi?.some((trx: any) => trx.status === "pending" || trx.status === "approved");
+      return {
+        ...t,
+        hasTransaction,
+      };
+    });
+
+    const serializedTagihan = serializeBigInt(tagihanWithTransaction);
 
     return NextResponse.json({
       message: "Data tagihan berhasil diambil",

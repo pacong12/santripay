@@ -19,12 +19,28 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    let email: string | undefined = undefined;
+    // Cek Bearer token di header
+    const authHeader = request.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const payload: any = require("jsonwebtoken").verify(token, process.env.JWT_SECRET || "secret");
+        email = payload?.email;
+      } catch (e) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      }
+    } else {
+      // Fallback ke session NextAuth
     const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      if (!session?.user) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      }
+      email = session.user.email;
+    }
+
+    if (!email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -37,6 +53,7 @@ export async function GET(
           },
         },
         jenisTagihan: true,
+        tahunAjaran: true,
       },
     });
 
@@ -46,6 +63,9 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Optional: verifikasi bahwa user yang akses adalah pemilik tagihan
+    // (bisa ditambah jika ingin lebih aman)
 
     // Convert BigInt to number for JSON serialization
     const serializedTagihan = {
@@ -66,6 +86,11 @@ export async function GET(
         createdAt: tagihan.jenisTagihan.createdAt.toISOString(),
         updatedAt: tagihan.jenisTagihan.updatedAt.toISOString(),
       },
+      tahunAjaran: tagihan.tahunAjaran ? {
+        ...tagihan.tahunAjaran,
+        createdAt: tagihan.tahunAjaran.createdAt.toISOString(),
+        updatedAt: tagihan.tahunAjaran.updatedAt.toISOString(),
+      } : undefined,
     };
 
     return NextResponse.json(serializedTagihan);
@@ -152,6 +177,7 @@ export async function PATCH(
           },
         },
         jenisTagihan: true,
+        tahunAjaran: true,
       },
     });
 
@@ -174,6 +200,11 @@ export async function PATCH(
         createdAt: updatedTagihan.jenisTagihan.createdAt.toISOString(),
         updatedAt: updatedTagihan.jenisTagihan.updatedAt.toISOString(),
       },
+      tahunAjaran: updatedTagihan.tahunAjaran ? {
+        ...updatedTagihan.tahunAjaran,
+        createdAt: updatedTagihan.tahunAjaran.createdAt.toISOString(),
+        updatedAt: updatedTagihan.tahunAjaran.updatedAt.toISOString(),
+      } : undefined,
     };
 
     return NextResponse.json({

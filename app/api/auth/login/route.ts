@@ -19,9 +19,15 @@ export async function POST(req: Request) {
     if (!valid) {
       return NextResponse.json({ success: false, message: "Email atau password salah" }, { status: 401 });
     }
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET || "secret", { expiresIn: "1h" });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || "secret", { expiresIn: "1h" });
     return NextResponse.json({ success: true, token, user: { id: user.id, email: user.email, role: user.role } });
   } catch (err) {
     return NextResponse.json({ success: false, message: "Terjadi kesalahan server" }, { status: 500 });
   }
+}
+
+// Tambahkan endpoint logout
+export async function DELETE(req: Request) {
+  // Tidak perlu revoke token, hanya response sukses
+  return NextResponse.json({ success: true, message: "Logout berhasil" });
 } 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Menu, MoreHorizontal } from "lucide-react";
+import { PlusCircle, Menu, MoreHorizontal, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "@/components/admin/app-sidebar";
@@ -105,6 +105,10 @@ interface Tagihan {
       name: string;
     amount: number;
   };
+  tahunAjaran?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface Santri {
@@ -123,6 +127,12 @@ interface JenisTagihan {
   amount: number;
 }
 
+interface TahunAjaran {
+  id: string;
+  name: string;
+  aktif: boolean;
+}
+
 const formSchema = z.object({
   id: z.string().optional(),
   santriId: z.string().uuid("Pilih santri yang valid"),
@@ -130,6 +140,16 @@ const formSchema = z.object({
   amount: z.coerce.number().min(0, "Jumlah harus lebih dari atau sama dengan 0"),
   dueDate: z.string().min(1, "Tanggal jatuh tempo harus diisi"),
   description: z.string().optional(),
+  tahunAjaranId: z.string().uuid().optional(),
+});
+
+const massalFormSchema = z.object({
+  kelasId: z.string().uuid("Pilih kelas yang valid"),
+  jenisTagihanId: z.string().uuid("Pilih jenis tagihan yang valid"),
+  amount: z.coerce.number().min(0, "Jumlah harus lebih dari atau sama dengan 0"),
+  dueDate: z.string().min(1, "Tanggal jatuh tempo harus diisi"),
+  description: z.string().optional(),
+  tahunAjaranId: z.string().uuid().optional(),
 });
 
 export default function TagihanPage() {
@@ -144,6 +164,7 @@ export default function TagihanPage() {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [isMassalDialogOpen, setIsMassalDialogOpen] = React.useState(false);
 
   // Form hook
   const form = useForm<z.infer<typeof formSchema>>({
@@ -151,6 +172,17 @@ export default function TagihanPage() {
     defaultValues: {
       id: "",
       santriId: "",
+      jenisTagihanId: "",
+      amount: 0,
+      dueDate: "",
+      description: "",
+    },
+  });
+
+  const massalForm = useForm<z.infer<typeof massalFormSchema>>({
+    resolver: zodResolver(massalFormSchema),
+    defaultValues: {
+      kelasId: "",
       jenisTagihanId: "",
       amount: 0,
       dueDate: "",
@@ -184,6 +216,20 @@ export default function TagihanPage() {
   } = useQuery<JenisTagihan[]>({ 
     queryKey: ["jenis-tagihan"], 
     queryFn: () => fetch("/api/jenis-tagihan").then((res) => res.json()) 
+  });
+
+  const {
+    data: kelasData,
+    isLoading: isLoadingKelas,
+    error: errorKelas,
+  } = useQuery({
+    queryKey: ["kelas"],
+    queryFn: () => fetch("/api/kelas").then((res) => res.json()),
+  });
+
+  const { data: tahunAjaranList = [], isLoading: loadingTahunAjaran } = useQuery<TahunAjaran[]>({
+    queryKey: ["tahun-ajaran"],
+    queryFn: () => fetch("/api/tahun-ajaran").then((res) => res.json()),
   });
 
   // Mutation hooks
@@ -256,6 +302,30 @@ export default function TagihanPage() {
       queryClient.invalidateQueries({ queryKey: ["tagihan"] });
       setDeletingTagihanId(null);
       toast.success("Tagihan berhasil dihapus");
+    },
+  });
+
+  const massalMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof massalFormSchema>) => {
+      const response = await fetch("/api/tagihan/massal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Gagal membuat tagihan massal");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["tagihan"] });
+      setIsMassalDialogOpen(false);
+      massalForm.reset();
+      toast.success(`Berhasil membuat ${data.count} tagihan massal!`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
@@ -365,6 +435,14 @@ export default function TagihanPage() {
       },
     },
     {
+      id: "tahunAjaran",
+      header: "Tahun Ajaran",
+      accessorFn: (row) => row.tahunAjaran?.name || "-",
+      cell: ({ row }: { row: Row<Tagihan> }) => (
+        <span>{row.original.tahunAjaran?.name || "-"}</span>
+      ),
+    },
+    {
       id: "actions",
       enableHiding: false,
       cell: ({ row }: { row: Row<Tagihan> }) => {
@@ -406,6 +484,20 @@ export default function TagihanPage() {
   });
 
   // Handler functions
+  const handleAddTagihan = () => {
+    setEditingTagihan(null);
+    form.reset({
+      id: "",
+      santriId: "",
+      jenisTagihanId: "",
+      amount: 0,
+      dueDate: "",
+      description: "",
+      tahunAjaranId: tahunAjaranList.find((t) => t.aktif)?.id || tahunAjaranList[0]?.id || "",
+    });
+    setIsDialogOpen(true);
+  };
+
   const handleEditTagihan = (tagihan: Tagihan) => {
     setEditingTagihan(tagihan);
       form.reset({
@@ -415,6 +507,7 @@ export default function TagihanPage() {
       amount: tagihan.amount,
       dueDate: tagihan.dueDate,
       description: tagihan.description || "",
+      tahunAjaranId: tagihan.tahunAjaran?.id || tahunAjaranList.find((t) => t.aktif)?.id || tahunAjaranList[0]?.id || "",
       });
       setIsDialogOpen(true);
   };
@@ -465,8 +558,8 @@ export default function TagihanPage() {
     }
   };
 
-  if (isLoadingTagihan || isLoadingSantri || isLoadingJenisTagihan) return <div>Memuat data...</div>;
-  if (errorTagihan || errorSantri || errorJenisTagihan) return <div>Terjadi kesalahan saat memuat data</div>;
+  if (isLoadingTagihan || isLoadingSantri || isLoadingJenisTagihan || isLoadingKelas) return <div>Memuat data...</div>;
+  if (errorTagihan || errorSantri || errorJenisTagihan || errorKelas) return <div>Terjadi kesalahan saat memuat data</div>;
 
   return (
     <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
@@ -499,10 +592,16 @@ export default function TagihanPage() {
             <h2 className="text-3xl font-bold tracking-tight">Tagihan</h2>
           </div>
         </div>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsMassalDialogOpen(true)} variant="secondary">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Tagihan Massal
+          </Button>
         <Button onClick={() => setIsDialogOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Tambah Tagihan
         </Button>
+        </div>
       </header>
       <div className="flex-1 space-y-6">
         <Card>
@@ -769,6 +868,32 @@ export default function TagihanPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="tahunAjaranId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tahun Ajaran</FormLabel>
+                      <FormControl>
+                        <select
+                          className="border rounded px-2 py-1 w-full"
+                          {...field}
+                          value={field.value || tahunAjaranList.find((t) => t.aktif)?.id || tahunAjaranList[0]?.id || ""}
+                          onChange={field.onChange}
+                          disabled={loadingTahunAjaran}
+                        >
+                          <option value="" disabled>Pilih tahun ajaran</option>
+                          {tahunAjaranList.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name} {t.aktif ? "(Aktif)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter>
                   <Button
                     type="button"
@@ -851,6 +976,10 @@ export default function TagihanPage() {
                     })}
                   </div>
                 </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Tahun Ajaran</div>
+                  <div className="col-span-3">{showingDetailTagihan.tahunAjaran?.name || "-"}</div>
+                </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <div className="text-right font-medium">Deskripsi</div>
                   <div className="col-span-3">{showingDetailTagihan.description || "-"}</div>
@@ -886,6 +1015,184 @@ export default function TagihanPage() {
                 {deleteTagihanMutation.isPending ? "Menghapus..." : "Hapus"}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isMassalDialogOpen} onOpenChange={setIsMassalDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Buat Tagihan Massal</DialogTitle>
+              <DialogDescription>Buat tagihan untuk seluruh santri dalam satu kelas.</DialogDescription>
+            </DialogHeader>
+            <Form {...massalForm}>
+              <form onSubmit={massalForm.handleSubmit((data) => massalMutation.mutate(data))} className="space-y-4">
+                <FormField
+                  control={massalForm.control}
+                  name="kelasId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kelas</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih kelas" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {kelasData?.map((kelas: any) => (
+                            <SelectItem key={kelas.id} value={kelas.id}>
+                              {kelas.name} {kelas.level ? `(${kelas.level})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={massalForm.control}
+                  name="jenisTagihanId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jenis Tagihan</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          const selectedJenis = jenisTagihanData?.find((j: any) => j.id === value);
+                          if (selectedJenis) {
+                            massalForm.setValue("amount", selectedJenis.amount || 0);
+                          }
+                        }}
+                        value={field.value}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih jenis tagihan" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {jenisTagihanData?.map((jenis: any) => (
+                            <SelectItem key={jenis.id} value={jenis.id}>
+                              {jenis.name} ({new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(jenis.amount)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={massalForm.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jumlah</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Masukkan jumlah" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={massalForm.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Jatuh Tempo</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(new Date(field.value), "PPP", { locale: id })
+                              ) : (
+                                <span>Pilih tanggal</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? new Date(field.value) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                const formattedDate = date.toISOString().split('T')[0];
+                                field.onChange(formattedDate);
+                              }
+                            }}
+                            disabled={(date) =>
+                              date < new Date("1900-01-01") || date > new Date("2100-12-31")
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={massalForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Deskripsi</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masukkan deskripsi (opsional)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={massalForm.control}
+                  name="tahunAjaranId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tahun Ajaran</FormLabel>
+                      <FormControl>
+                        <select
+                          className="border rounded px-2 py-1 w-full"
+                          {...field}
+                          value={field.value || tahunAjaranList.find((t) => t.aktif)?.id || tahunAjaranList[0]?.id || ""}
+                          onChange={field.onChange}
+                          disabled={loadingTahunAjaran}
+                        >
+                          <option value="" disabled>Pilih tahun ajaran</option>
+                          {tahunAjaranList.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name} {t.aktif ? "(Aktif)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsMassalDialogOpen(false)}>
+                    Batal
+                  </Button>
+                  <Button type="submit" disabled={massalMutation.isPending}>
+                    {massalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Buat Tagihan Massal
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

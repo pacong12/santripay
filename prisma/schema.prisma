@@ -42,18 +42,34 @@ model Santri {
   transaksi Transaksi[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  riwayatKelas RiwayatKelas[]
 
   @@map("santri")
 }
 
-model Kelas {
+model TahunAjaran {
   id        String   @id @default(uuid())
-  name      String
-  level     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  name      String   // Contoh: "2023/2024"
+  aktif     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  santri    Santri[]
+  kelas     Kelas[]
+  tagihan   Tagihan[]
+}
+
+model Kelas {
+  id            String        @id @default(uuid())
+  name          String
+  level         String?
+  tahunAjaranId String
+  tahunAjaran   TahunAjaran   @relation(fields: [tahunAjaranId], references: [id])
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  santri        Santri[]
+  kelasLama     RiwayatKelas[] @relation("KelasLama")
+  kelasBaru     RiwayatKelas[] @relation("KelasBaru")
 
   @@map("kelas")
 }
@@ -68,6 +84,9 @@ model Tagihan {
   description   String?
   createdAt     DateTime        @default(now()) @map("created_at")
   updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  tahunAjaranId String?
+  tahunAjaran   TahunAjaran?     @relation(fields: [tahunAjaranId], references: [id])
 
   santri        Santri          @relation(fields: [santriId], references: [id])
   jenisTagihan  JenisTagihan    @relation(fields: [jenisTagihanId], references: [id])
@@ -125,6 +144,21 @@ model Notifikasi {
   @@map("notifikasi")
 }
 
+model RiwayatKelas {
+  id           String   @id @default(cuid())
+  santriId     String
+  santri       Santri   @relation(fields: [santriId], references: [id], onDelete: Cascade)
+  kelasLamaId  String
+  kelasLama    Kelas    @relation("KelasLama", fields: [kelasLamaId], references: [id])
+  kelasBaruId  String
+  kelasBaru    Kelas    @relation("KelasBaru", fields: [kelasBaruId], references: [id])
+  tanggal      DateTime @default(now())
+
+  @@index([santriId])
+  @@index([kelasLamaId])
+  @@index([kelasBaruId])
+}
+
 enum Role {
   admin
   santri
@@ -157,4 +191,7 @@ enum JenisNotifikasi {
   pembayaran_ditolak_admin
   tagihan_jatuh_tempo_admin
   sistem
+
+  // Tambahan
+  naik_kelas
 }
