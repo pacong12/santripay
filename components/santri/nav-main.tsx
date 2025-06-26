@@ -54,7 +54,7 @@ export function NavMain() {
     const unreadNotif = notifikasi.filter((n: any) => !n.isRead)
     const count = unreadNotif.length
 
-    if (count === 0) return null
+    if (count === 0) return undefined;
 
     // Cek apakah ada notifikasi dengan tipe error (pembayaran ditolak)
     const hasError = unreadNotif.some((n: any) => n.type === 'error')

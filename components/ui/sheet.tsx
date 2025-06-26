@@ -7,8 +7,9 @@ import { XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" className="hidden md:block" {...props} />
+  return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
+
 
 function SheetTrigger({
   ...props
@@ -25,7 +26,7 @@ function SheetClose({
 function SheetPortal({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
-  return <SheetPrimitive.Portal data-slot="sheet-portal" className="hidden md:block" {...props} />
+  return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
 }
 
 function SheetOverlay({

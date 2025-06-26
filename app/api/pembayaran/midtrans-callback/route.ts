@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { coreApi } from "@/lib/services/midtrans";
+import { StatusTransaksi, StatusTagihan } from "@prisma/client";
 
 function verifySignature(body: any, signatureKey: string) {
   const crypto = require("crypto");
@@ -40,52 +41,52 @@ export async function POST(request: Request) {
     }
 
     // Update transaksi dan tagihan
-    await prisma.$transaction(async (tx: typeof prisma) => {
+    await prisma.$transaction(async (tx) => {
       // Update atau buat transaksi
       const transaksi = await tx.transaksi.upsert({
-        where: {
-          tagihanId: tagihanId,
-          // asumsikan satu transaksi per tagihan untuk Midtrans
-        },
+        where: { tagihanId },
         update: {
-          status: statusTransaksi,
+          status: statusTransaksi as StatusTransaksi,
           paymentDate: new Date(),
         },
         create: {
-          tagihanId: tagihanId,
+          tagihanId,
           santriId: tagihan.santriId,
           amount: tagihan.amount,
           paymentDate: new Date(),
-          status: statusTransaksi,
+          status: statusTransaksi as StatusTransaksi,
           note: `Pembayaran via Midtrans (${transaction_status})`,
         },
+      });
+      // Ambil ulang transaksi lengkap dengan relasi
+      const transaksiFull = await tx.transaksi.findUnique({
+        where: { id: transaksi.id },
         include: {
           santri: { include: { user: true } },
           tagihan: { include: { jenisTagihan: true } },
         },
       });
-      // Update status tagihan
       await tx.tagihan.update({
         where: { id: tagihanId },
-        data: { status: statusTagihan },
+        data: { status: statusTagihan as StatusTagihan },
       });
       // Notifikasi otomatis untuk santri
-      if (transaksi.santri?.user?.id) {
+      if (transaksiFull?.santri && transaksiFull.santri.user && transaksiFull.santri.user.id) {
         if (statusTransaksi === "approved") {
           await tx.notifikasi.create({
             data: {
-              userId: transaksi.santri.user.id,
+              userId: transaksiFull.santri.user.id,
               title: "Pembayaran Berhasil",
-              message: `Pembayaran Anda untuk ${transaksi.tagihan.jenisTagihan.name} sebesar Rp ${Number(transaksi.amount).toLocaleString('id-ID')} telah berhasil diproses melalui Midtrans.`,
+              message: `Pembayaran Anda untuk ${transaksiFull.tagihan?.jenisTagihan?.name ?? "-"} sebesar Rp ${Number(transaksiFull.amount).toLocaleString('id-ID')} telah berhasil diproses melalui Midtrans.`,
               type: "pembayaran_diterima"
             },
           });
         } else if (statusTransaksi === "rejected") {
           await tx.notifikasi.create({
             data: {
-              userId: transaksi.santri.user.id,
+              userId: transaksiFull.santri.user.id,
               title: "Pembayaran Gagal",
-              message: `Pembayaran Anda untuk ${transaksi.tagihan.jenisTagihan.name} sebesar Rp ${Number(transaksi.amount).toLocaleString('id-ID')} gagal diproses oleh Midtrans. Silakan coba lagi atau hubungi admin.`,
+              message: `Pembayaran Anda untuk ${transaksiFull.tagihan?.jenisTagihan?.name ?? "-"} sebesar Rp ${Number(transaksiFull.amount).toLocaleString('id-ID')} gagal diproses oleh Midtrans. Silakan coba lagi atau hubungi admin.`,
               type: "pembayaran_ditolak"
             },
           });
@@ -97,12 +98,13 @@ export async function POST(request: Request) {
           where: { role: "admin", receiveAppNotifications: true },
           select: { id: true },
         });
+        if (!transaksiFull) return;
         await Promise.all(adminUsers.map(async (adminUser: { id: string }) => {
           await tx.notifikasi.create({
             data: {
               userId: adminUser.id,
               title: "Pembayaran Midtrans Berhasil",
-              message: `Pembayaran dari ${transaksi.santri.name} untuk ${transaksi.tagihan.jenisTagihan.name} sebesar Rp ${Number(transaksi.amount).toLocaleString('id-ID')} telah berhasil diproses melalui Midtrans.`,
+              message: `Pembayaran dari ${transaksiFull.santri?.name ?? "-"} untuk ${transaksiFull.tagihan?.jenisTagihan?.name ?? "-"} sebesar Rp ${Number(transaksiFull.amount).toLocaleString('id-ID')} telah berhasil diproses melalui Midtrans.`,
               type: "sistem"
             },
           });

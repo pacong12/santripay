@@ -100,10 +100,11 @@ model Tagihan {
 model Transaksi {
   id           String          @id @default(uuid())
   santriId     String          @map("santri_id")
-  tagihanId    String?         @map("tagihan_id")
+  tagihanId    String?         @map("tagihan_id") @unique
   amount       BigInt
   status       StatusTransaksi @default(pending)
   paymentDate  DateTime        @map("payment_date")
+  paymentMethod String?
   note         String?
   createdAt    DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime        @updatedAt @map("updated_at")

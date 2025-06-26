@@ -151,7 +151,7 @@ export async function POST(req: Request) {
     ]);
 
     // Mulai transaksi untuk memastikan konsistensi data
-    const result = await prisma.$transaction(async (tx: PrismaClient) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Simpan riwayat kenaikan kelas
       const naikKelasRecords = await Promise.all(
         santriIds.map(async (santriId) => {

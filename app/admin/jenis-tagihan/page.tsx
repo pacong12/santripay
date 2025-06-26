@@ -181,7 +181,7 @@ export default function JenisTagihanPage() {
     if (editingJenisTagihan) {
       form.reset({
         name: editingJenisTagihan.name,
-        amount: editingJenisTagihan.amount,
+        amount: editingJenisTagihan.amount !== null ? editingJenisTagihan.amount : undefined,
         description: editingJenisTagihan.description || "",
       });
     } else {

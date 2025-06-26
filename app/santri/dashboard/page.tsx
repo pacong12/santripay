@@ -422,7 +422,7 @@ export default function DashboardSantriPage() {
                 </div>
               ) : (
                 tagihan
-                  .sort((a, b) => {
+                  .sort((a: Tagihan, b: Tagihan) => {
                     // Prioritaskan tagihan yang belum dibayar
                     if (a.status === "pending" && b.status !== "pending") return -1;
                     if (a.status !== "pending" && b.status === "pending") return 1;
@@ -512,7 +512,7 @@ export default function DashboardSantriPage() {
                 </div>
               ) : (
                 transaksi
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .sort((a: Transaksi, b: Transaksi) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
                   .slice(0, 5)
                   .map((t: Transaksi) => (
                   <div

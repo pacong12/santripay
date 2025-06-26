@@ -150,7 +150,7 @@ export default function PembayaranPage() {
       case "pending":
         return <Badge variant="outline">Menunggu</Badge>
       case "approved":
-        return <Badge variant="success">Disetujui</Badge>
+        return <Badge variant="default">Disetujui</Badge>
       case "rejected":
         return <Badge variant="destructive">Ditolak</Badge>
       default:

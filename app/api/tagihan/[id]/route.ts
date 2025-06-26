@@ -29,7 +29,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       }
     } else {
       // Fallback ke session NextAuth
-      const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions);
       if (!session?.user) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
       }
