@@ -50,7 +50,7 @@ function serializeBigInt(data: any): any {
 
 export async function GET(
   req: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -62,7 +62,7 @@ export async function GET(
       );
     }
 
-    const { id } = context.params;
+    const { id } = await context.params;
 
     const transaksi = await prisma.transaksi.findUnique({
       where: {
@@ -114,7 +114,7 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -133,7 +133,7 @@ export async function PATCH(
       );
     }
 
-    const { id } = context.params;
+    const { id } = await context.params;
     const body = await req.json();
     const validatedData = transaksiSchema.parse(body);
 
@@ -182,7 +182,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -194,7 +194,7 @@ export async function DELETE(
       );
     }
 
-    const { id } = params;
+    const { id } = await context.params;
 
     await prisma.transaksi.delete({
       where: {
@@ -202,9 +202,7 @@ export async function DELETE(
       },
     });
 
-    return NextResponse.json({
-      message: "Transaksi berhasil dihapus",
-    }, { status: 200 });
+    return NextResponse.json({ message: "Transaksi berhasil dihapus" });
   } catch (error) {
     console.error("[TRANSACTION_DELETE]", error);
     return NextResponse.json(
