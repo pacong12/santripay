@@ -1,13 +1,11 @@
+// app/auth/layout.tsx
 import { ReactNode } from "react";
+import { ThemeProvider } from "@/components/theme-provider"; // pastikan path sesuai
 
-interface AuthLayoutProps {
-  children: ReactNode;
-}
-
-export default function AuthLayout({ children }: AuthLayoutProps) {
+export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {children}
-    </div>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        {children}
+    </ThemeProvider>
   );
-} 
+}
