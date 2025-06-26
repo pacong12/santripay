@@ -27,8 +27,6 @@ import {
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import {
@@ -59,12 +57,13 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import {
   RadioGroup,
   RadioGroupItem,
-  RadioGroupValue,
 } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import Script from "next/script";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface Tagihan {
   id: string;
@@ -88,7 +87,7 @@ interface Transaksi {
   tagihanId: string;
   amount: number;
   paymentDate: string;
-  paymentMethod: "cash" | "transfer" | "qris";
+  paymentMethod: "cash" | "transfer" | "qris" | "midtrans";
   status: "pending" | "approved" | "rejected";
   note?: string;
   tagihan?: Tagihan;
@@ -111,17 +110,10 @@ export default function PembayaranPage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [note, setNote] = useState("");
   const queryClient = useQueryClient();
-
-  // Form hook
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      tagihanId: "",
-      amount: 0,
-      paymentMethod: "cash",
-      note: "",
-    },
-  });
+  const [snapLoading, setSnapLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("manual");
+  const [bukti, setBukti] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch data
   const { data: tagihanResponse, isLoading, error } = useQuery({
@@ -163,10 +155,14 @@ export default function PembayaranPage() {
       transaksi.status === "pending"
   ) || [];
 
+  // Filter transaksi manual dan Midtrans
+  const manualTransaksi = paidTransaksi.filter((t: Transaksi) => ["cash", "transfer", "qris"].includes(t.paymentMethod));
+  const midtransTransaksi = paidTransaksi.filter((t: Transaksi) => t.paymentMethod === "midtrans" || (t.note && t.note.toLowerCase().includes("midtrans")));
+
   // Fungsi untuk mengecek apakah tagihan sudah memiliki transaksi
   const hasTransaction = (tagihanId: string) => {
     return paidTransaksi.some(
-      (transaksi: Transaksi) => transaksi.tagihan.id === tagihanId
+      (transaksi: Transaksi) => transaksi.tagihan?.id === tagihanId
     );
   };
 
@@ -174,36 +170,92 @@ export default function PembayaranPage() {
   const pembayaranMutation = useMutation({
     mutationFn: async () => {
       if (!selectedTagihan) return;
-      
-      const response = await fetch("/api/pembayaran", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tagihanId: selectedTagihan.id,
-          amount: Number(amount),
-          paymentMethod,
-          note,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Gagal membuat pembayaran");
+      if (activeTab === "midtrans") {
+        const response = await fetch("/api/pembayaran/midtrans", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ tagihanId: selectedTagihan.id }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Gagal membuat pembayaran Midtrans");
+        }
+        return response.json();
+      } else {
+        // Manual, handle upload bukti jika ada
+        let buktiUrl = undefined;
+        if (bukti) {
+          // Simulasi upload, implementasi upload sesuaikan kebutuhan
+          // Misal: upload ke endpoint /api/upload, dapatkan url
+          // buktiUrl = await uploadBukti(bukti);
+        }
+        const response = await fetch("/api/pembayaran", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tagihanId: selectedTagihan.id,
+            amount: Number(amount),
+            paymentMethod,
+            note,
+            bukti: buktiUrl,
+          }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Gagal membuat pembayaran");
+        }
+        return response.json();
       }
-
-      return response.json();
     },
-    onSuccess: () => {
-      toast.success("Pembayaran berhasil dibuat dan menunggu konfirmasi admin");
-      queryClient.invalidateQueries({ queryKey: ["transaksi"] });
-      queryClient.invalidateQueries({ queryKey: ["tagihan"] });
-      setSelectedTagihan(null);
-      setAmount("");
-      setPaymentMethod("");
-      setNote("");
-      setIsDialogOpen(false);
+    onSuccess: (data) => {
+      if (activeTab === "midtrans" && data.snapToken) {
+        setSnapLoading(true);
+        // @ts-ignore
+        window.snap.pay(data.snapToken, {
+          onSuccess: function() {
+            toast.success("Pembayaran berhasil diproses oleh Midtrans");
+            setIsDialogOpen(false);
+            setSelectedTagihan(null);
+            setAmount("");
+            setPaymentMethod("");
+            setNote("");
+            setBukti(null);
+            queryClient.invalidateQueries({ queryKey: ["transaksi"] });
+            queryClient.invalidateQueries({ queryKey: ["tagihan"] });
+          },
+          onPending: function() {
+            toast("Pembayaran Anda sedang diproses oleh Midtrans");
+            setIsDialogOpen(false);
+            setSelectedTagihan(null);
+            setAmount("");
+            setPaymentMethod("");
+            setNote("");
+            setBukti(null);
+            queryClient.invalidateQueries({ queryKey: ["transaksi"] });
+            queryClient.invalidateQueries({ queryKey: ["tagihan"] });
+          },
+          onError: function() {
+            toast.error("Pembayaran gagal diproses oleh Midtrans");
+          },
+          onClose: function() {
+            setSnapLoading(false);
+          }
+        });
+      } else {
+        toast.success("Pembayaran berhasil dibuat dan menunggu konfirmasi admin");
+        setIsDialogOpen(false);
+        setSelectedTagihan(null);
+        setAmount("");
+        setPaymentMethod("");
+        setNote("");
+        setBukti(null);
+        queryClient.invalidateQueries({ queryKey: ["transaksi"] });
+        queryClient.invalidateQueries({ queryKey: ["tagihan"] });
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || "Gagal membuat pembayaran");
@@ -292,7 +344,7 @@ export default function PembayaranPage() {
               <div className="text-center text-gray-500">Tidak ada tagihan yang belum dibayar</div>
             ) : (
               <div className="space-y-4">
-                {unpaidTagihan.map((tagihan) => {
+                {unpaidTagihan.map((tagihan: Tagihan) => {
                   const hasExistingTransaction = hasTransaction(tagihan.id);
                   return (
                     <div
@@ -336,15 +388,15 @@ export default function PembayaranPage() {
               <div className="text-center text-gray-500">Belum ada riwayat pembayaran</div>
             ) : (
               <div className="space-y-4">
-                {paidTransaksi.map((transaksi) => (
+                {paidTransaksi.map((transaksi: Transaksi) => (
                   <div
                     key={transaksi.id}
                     className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50"
-                    onClick={() => handleBayar(transaksi.tagihan)}
+                    onClick={() => transaksi.tagihan && handleBayar(transaksi.tagihan)}
                   >
                     <div>
                       <h3 className="font-medium">
-                        {transaksi.tagihan.jenisTagihan.name}
+                        {transaksi.tagihan?.jenisTagihan.name}
                       </h3>
                       <p className="text-sm text-gray-500">
                         Tanggal: {new Date(transaksi.paymentDate).toLocaleDateString("id-ID")}
@@ -363,86 +415,139 @@ export default function PembayaranPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Riwayat Pembayaran Manual</h3>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>
+            ) : manualTransaksi.length === 0 ? (
+              <div className="text-center text-gray-500">Belum ada riwayat pembayaran manual</div>
+            ) : (
+              <div className="space-y-4">
+                {manualTransaksi.map((transaksi: Transaksi) => (
+                  <div key={transaksi.id} className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50" onClick={() => transaksi.tagihan && handleBayar(transaksi.tagihan)}>
+                    <div>
+                      <h3 className="font-medium">{transaksi.tagihan?.jenisTagihan.name}</h3>
+                      <p className="text-sm text-gray-500">Tanggal: {new Date(transaksi.paymentDate).toLocaleDateString("id-ID")}</p>
+                      <p className="text-sm text-gray-500">Jumlah: Rp {Number(transaksi.amount).toLocaleString("id-ID")}</p>
+                      <p className="text-sm text-gray-500">Status: {transaksi.status}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Riwayat Pembayaran Midtrans</h3>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>
+            ) : midtransTransaksi.length === 0 ? (
+              <div className="text-center text-gray-500">Belum ada riwayat pembayaran Midtrans</div>
+            ) : (
+              <div className="space-y-4">
+                {midtransTransaksi.map((transaksi: Transaksi) => (
+                  <div key={transaksi.id} className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50" onClick={() => transaksi.tagihan && handleBayar(transaksi.tagihan)}>
+                    <div>
+                      <h3 className="font-medium">{transaksi.tagihan?.jenisTagihan.name}</h3>
+                      <p className="text-sm text-gray-500">Tanggal: {new Date(transaksi.paymentDate).toLocaleDateString("id-ID")}</p>
+                      <p className="text-sm text-gray-500">Jumlah: Rp {Number(transaksi.amount).toLocaleString("id-ID")}</p>
+                      <p className="text-sm text-gray-500">Status: {transaksi.status}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Konfirmasi Pembayaran</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <Label>Tagihan</Label>
-                  <Input
-                    value={selectedTagihan?.jenisTagihan.name || ""}
-                    disabled
-                  />
-                </div>
-                <div>
-                  <Label>Jumlah Tagihan</Label>
-                  <Input
-                    value={selectedTagihan ? `Rp ${selectedTagihan.amount.toLocaleString('id-ID')}` : ""}
-                    disabled
-                  />
-                </div>
-                <div>
-                  <Label>Jumlah Pembayaran</Label>
-                  <Input
-                    type="number"
-                    value={amount || ""}
-                    disabled
-                  />
-                </div>
-                <div>
-                  <Label>Metode Pembayaran</Label>
-                  <RadioGroup
-                    value={paymentMethod}
-                    onValueChange={setPaymentMethod}
-                    className="flex flex-col space-y-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="transfer" id="transfer" />
-                      <Label htmlFor="transfer">Transfer Bank</Label>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="manual">Manual</TabsTrigger>
+                <TabsTrigger value="midtrans">Midtrans</TabsTrigger>
+              </TabsList>
+              <TabsContent value="manual">
+                <form onSubmit={handleSubmit}>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Tagihan</Label>
+                      <Input value={selectedTagihan?.jenisTagihan.name || ""} disabled />
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="cash" id="cash" />
-                      <Label htmlFor="cash">Tunai</Label>
+                    <div>
+                      <Label>Jumlah Tagihan</Label>
+                      <Input value={selectedTagihan ? `Rp ${selectedTagihan.amount.toLocaleString('id-ID')}` : ""} disabled />
                     </div>
-                  </RadioGroup>
+                    <div>
+                      <Label>Jumlah Pembayaran</Label>
+                      <Input type="number" value={amount || ""} disabled />
+                    </div>
+                    <div>
+                      <Label>Metode Pembayaran</Label>
+                      <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="flex flex-col space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="transfer" id="transfer" />
+                          <Label htmlFor="transfer">Transfer Bank</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="cash" id="cash" />
+                          <Label htmlFor="cash">Tunai</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="qris" id="qris" />
+                          <Label htmlFor="qris">QRIS</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label>Catatan (Opsional)</Label>
+                      <Textarea value={note || ""} onChange={(e) => setNote(e.target.value)} placeholder="Tambahkan catatan jika diperlukan" />
+                    </div>
+                    <div>
+                      <Label>Bukti Transfer (Opsional)</Label>
+                      <Input type="file" accept="image/*" ref={fileInputRef} onChange={e => setBukti(e.target.files?.[0] || null)} />
+                    </div>
+                  </div>
+                  <DialogFooter className="mt-6">
+                    <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); setSelectedTagihan(null); setAmount(""); setPaymentMethod(""); setNote(""); setBukti(null); }}>Batal</Button>
+                    <Button type="submit" disabled={pembayaranMutation.isPending}>{pembayaranMutation.isPending ? "Memproses..." : "Bayar"}</Button>
+                  </DialogFooter>
+                </form>
+              </TabsContent>
+              <TabsContent value="midtrans">
+                <div className="space-y-4">
+                  <div>
+                    <Label>Tagihan</Label>
+                    <Input value={selectedTagihan?.jenisTagihan.name || ""} disabled />
+                  </div>
+                  <div>
+                    <Label>Jumlah Tagihan</Label>
+                    <Input value={selectedTagihan ? `Rp ${selectedTagihan.amount.toLocaleString('id-ID')}` : ""} disabled />
+                  </div>
+                  <Button className="w-full mt-4" onClick={e => { e.preventDefault(); pembayaranMutation.mutateAsync(); }} disabled={pembayaranMutation.isPending || snapLoading}>
+                    {pembayaranMutation.isPending || snapLoading ? "Memproses..." : "Bayar via Midtrans"}
+                  </Button>
                 </div>
-                <div>
-                  <Label>Catatan (Opsional)</Label>
-                  <Textarea
-                    value={note || ""}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Tambahkan catatan jika diperlukan"
-                  />
-                </div>
-              </div>
-              <DialogFooter className="mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsDialogOpen(false);
-                    setSelectedTagihan(null);
-                    setAmount("");
-                    setPaymentMethod("");
-                    setNote("");
-                  }}
-                >
-                  Batal
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={pembayaranMutation.isPending}
-                >
-                  {pembayaranMutation.isPending ? "Memproses..." : "Bayar"}
-                </Button>
-              </DialogFooter>
-            </form>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
+      <Script
+        src="https://app.sandbox.midtrans.com/snap/snap.js"
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="afterInteractive"
+      />
     </div>
   );
 } 

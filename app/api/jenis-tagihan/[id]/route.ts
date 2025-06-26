@@ -14,9 +14,9 @@ export async function GET(
   request: Request,
   context: { params: { id: string } }
 ) {
+  const { id } = context.params;
   try {
     const session = await getServerSession(authOptions);
-    const { id } = context.params;
 
     if (!session?.user) {
       return NextResponse.json(

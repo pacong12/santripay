@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import Script from "next/script";
 
 interface Tagihan {
   id: string;
@@ -38,6 +39,7 @@ export default function BayarPage() {
   const searchParams = useSearchParams();
   const [paymentMethod, setPaymentMethod] = useState<string>("transfer");
   const [note, setNote] = useState<string>("");
+  const [snapLoading, setSnapLoading] = useState(false);
 
   const { data: tagihanResponse, isLoading } = useQuery({
     queryKey: ["tagihan"],
@@ -56,24 +58,63 @@ export default function BayarPage() {
 
   const createPembayaran = useMutation({
     mutationFn: async (data: any) => {
-      const response = await fetch("/api/pembayaran", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error("Gagal membuat pembayaran");
+      if (data.paymentMethod === "midtrans") {
+        const response = await fetch("/api/pembayaran/midtrans", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ tagihanId: data.tagihanId }),
+        });
+        if (!response.ok) {
+          throw new Error("Gagal membuat pembayaran Midtrans");
+        }
+        return response.json();
+      } else {
+        const response = await fetch("/api/pembayaran", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        if (!response.ok) {
+          throw new Error("Gagal membuat pembayaran");
+        }
+        return response.json();
       }
-      return response.json();
     },
-    onSuccess: () => {
-      toast.success("Pembayaran berhasil dibuat");
-      router.push("/santri/pembayaran");
+    onSuccess: (data, variables) => {
+      if (variables.paymentMethod === "midtrans" && data.snapToken) {
+        setSnapLoading(true);
+        // @ts-ignore
+        window.snap.pay(data.snapToken, {
+          onSuccess: function() {
+            toast.success("Pembayaran berhasil diproses oleh Midtrans");
+            router.push("/santri/pembayaran");
+          },
+          onPending: function() {
+            toast("Pembayaran Anda sedang diproses oleh Midtrans");
+            router.push("/santri/pembayaran");
+          },
+          onError: function() {
+            toast.error("Pembayaran gagal diproses oleh Midtrans");
+          },
+          onClose: function() {
+            setSnapLoading(false);
+          }
+        });
+      } else {
+        toast.success("Pembayaran berhasil dibuat");
+        router.push("/santri/pembayaran");
+      }
     },
-    onError: () => {
-      toast.error("Gagal membuat pembayaran");
+    onError: (error: any, variables) => {
+      if (variables.paymentMethod === "midtrans") {
+        toast.error("Gagal membuat pembayaran Midtrans");
+      } else {
+        toast.error("Gagal membuat pembayaran");
+      }
     },
   });
 
@@ -175,6 +216,10 @@ export default function BayarPage() {
                     <RadioGroupItem value="qris" id="qris" />
                     <Label htmlFor="qris">QRIS</Label>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="midtrans" id="midtrans" />
+                    <Label htmlFor="midtrans">Pembayaran Online (Midtrans)</Label>
+                  </div>
                 </RadioGroup>
               </div>
 
@@ -199,6 +244,12 @@ export default function BayarPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Script
+        src="https://app.sandbox.midtrans.com/snap/snap.js"
+        data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+        strategy="afterInteractive"
+      />
     </div>
   );
 } 

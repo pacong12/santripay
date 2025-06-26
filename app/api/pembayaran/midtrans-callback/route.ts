@@ -1,0 +1,118 @@
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { coreApi } from "@/lib/services/midtrans";
+
+function verifySignature(body: any, signatureKey: string) {
+  const crypto = require("crypto");
+  const data = body.order_id + body.status_code + body.gross_amount + process.env.MIDTRANS_SERVER_KEY;
+  const hash = crypto.createHash("sha512").update(data).digest("hex");
+  return hash === signatureKey;
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const signatureKey = body.signature_key;
+    if (!verifySignature(body, signatureKey)) {
+      return NextResponse.json({ message: "Invalid signature" }, { status: 403 });
+    }
+
+    // Ambil order_id dan status
+    const { order_id, transaction_status, fraud_status } = body;
+    // order_id format: TAGIHAN-<tagihanId>-<timestamp>
+    const tagihanId = order_id.split("-")[1];
+
+    // Temukan transaksi terkait
+    const tagihan = await prisma.tagihan.findUnique({ where: { id: tagihanId } });
+    if (!tagihan) {
+      return NextResponse.json({ message: "Tagihan tidak ditemukan" }, { status: 404 });
+    }
+
+    // Update status tagihan & transaksi sesuai status Midtrans
+    let statusTagihan = "pending";
+    let statusTransaksi = "pending";
+    if (transaction_status === "settlement" || transaction_status === "capture") {
+      statusTagihan = "paid";
+      statusTransaksi = "approved";
+    } else if (transaction_status === "deny" || transaction_status === "expire" || transaction_status === "cancel") {
+      statusTagihan = "pending";
+      statusTransaksi = "rejected";
+    }
+
+    // Update transaksi dan tagihan
+    await prisma.$transaction(async (tx: typeof prisma) => {
+      // Update atau buat transaksi
+      const transaksi = await tx.transaksi.upsert({
+        where: {
+          tagihanId: tagihanId,
+          // asumsikan satu transaksi per tagihan untuk Midtrans
+        },
+        update: {
+          status: statusTransaksi,
+          paymentDate: new Date(),
+        },
+        create: {
+          tagihanId: tagihanId,
+          santriId: tagihan.santriId,
+          amount: tagihan.amount,
+          paymentDate: new Date(),
+          status: statusTransaksi,
+          note: `Pembayaran via Midtrans (${transaction_status})`,
+        },
+        include: {
+          santri: { include: { user: true } },
+          tagihan: { include: { jenisTagihan: true } },
+        },
+      });
+      // Update status tagihan
+      await tx.tagihan.update({
+        where: { id: tagihanId },
+        data: { status: statusTagihan },
+      });
+      // Notifikasi otomatis untuk santri
+      if (transaksi.santri?.user?.id) {
+        if (statusTransaksi === "approved") {
+          await tx.notifikasi.create({
+            data: {
+              userId: transaksi.santri.user.id,
+              title: "Pembayaran Berhasil",
+              message: `Pembayaran Anda untuk ${transaksi.tagihan.jenisTagihan.name} sebesar Rp ${Number(transaksi.amount).toLocaleString('id-ID')} telah berhasil diproses melalui Midtrans.`,
+              type: "pembayaran_diterima"
+            },
+          });
+        } else if (statusTransaksi === "rejected") {
+          await tx.notifikasi.create({
+            data: {
+              userId: transaksi.santri.user.id,
+              title: "Pembayaran Gagal",
+              message: `Pembayaran Anda untuk ${transaksi.tagihan.jenisTagihan.name} sebesar Rp ${Number(transaksi.amount).toLocaleString('id-ID')} gagal diproses oleh Midtrans. Silakan coba lagi atau hubungi admin.`,
+              type: "pembayaran_ditolak"
+            },
+          });
+        }
+      }
+      // Notifikasi otomatis untuk admin jika pembayaran berhasil
+      if (statusTransaksi === "approved") {
+        const adminUsers = await tx.user.findMany({
+          where: { role: "admin", receiveAppNotifications: true },
+          select: { id: true },
+        });
+        await Promise.all(adminUsers.map(async (adminUser: { id: string }) => {
+          await tx.notifikasi.create({
+            data: {
+              userId: adminUser.id,
+              title: "Pembayaran Midtrans Berhasil",
+              message: `Pembayaran dari ${transaksi.santri.name} untuk ${transaksi.tagihan.jenisTagihan.name} sebesar Rp ${Number(transaksi.amount).toLocaleString('id-ID')} telah berhasil diproses melalui Midtrans.`,
+              type: "sistem"
+            },
+          });
+        }));
+      }
+    });
+
+    return NextResponse.json({ message: "Callback processed" });
+  } catch (error) {
+    console.error("[MIDTRANS_CALLBACK]", error);
+    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+  }
+} 

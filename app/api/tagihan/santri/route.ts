@@ -37,16 +37,22 @@ export async function GET(req: Request) {
   try {
     // Ambil token dari header Authorization
     const authHeader = req.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-    const token = authHeader.split(" ")[1];
     let email: string | undefined = undefined;
-    try {
-      const payload: any = jwt.verify(token, process.env.JWT_SECRET || "secret");
-      email = payload?.email;
-    } catch (e) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const payload: any = jwt.verify(token, process.env.JWT_SECRET || "secret");
+        email = payload?.email;
+      } catch (e) {
+        return new NextResponse("Unauthorized", { status: 401 });
+      }
+    } else {
+      // Fallback ke session NextAuth
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.email) {
+        return new NextResponse("Unauthorized", { status: 401 });
+      }
+      email = session.user.email;
     }
 
     if (!email) {
