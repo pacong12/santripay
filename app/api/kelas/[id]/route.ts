@@ -10,11 +10,7 @@ const kelasSchema = z.object({
   tahunAjaranId: z.string().min(1, "Tahun ajaran wajib dipilih").optional(),
 });
 
-interface Params {
-  id: string;
-}
-
-export async function GET(req: Request, context: { params: Promise<Params> }) {
+export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -44,7 +40,7 @@ export async function GET(req: Request, context: { params: Promise<Params> }) {
   }
 }
 
-export async function PUT(req: Request, context: { params: Promise<Params> }) {
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -83,7 +79,7 @@ export async function PUT(req: Request, context: { params: Promise<Params> }) {
   }
 }
 
-export async function DELETE(req: Request, context: { params: Promise<Params> }) {
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     

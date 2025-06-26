@@ -13,13 +13,13 @@ const putSchema = z.object({
   aktif: z.boolean().optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-    const { id } = await params;
+    const { id } = await context.params;
     const body = await req.json();
     const { aktif } = patchSchema.parse(body);
     if (aktif) {
@@ -41,13 +41,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-    const { id } = await params;
+    const { id } = await context.params;
     const body = await req.json();
     const data = putSchema.parse(body);
     // Jika aktif true, nonaktifkan tahun ajaran lain
@@ -68,13 +68,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-    const { id } = await params;
+    const { id } = await context.params;
     // Cek apakah ada tagihan terkait tahun ajaran ini
     const count = await prisma.tagihan.count({ where: { tahunAjaranId: id } });
     if (count > 0) {

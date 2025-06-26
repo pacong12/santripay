@@ -12,9 +12,9 @@ const jenisTagihanSchema = z.object({
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = context.params;
+  const { id } = await context.params;
   try {
     const session = await getServerSession(authOptions);
 
@@ -51,11 +51,11 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
   try {
     const session = await getServerSession(authOptions);
-    const { id } = context.params;
 
     if (!session?.user) {
       return NextResponse.json(
@@ -97,11 +97,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
   try {
     const session = await getServerSession(authOptions);
-    const { id } = context.params;
 
     if (!session?.user) {
       return NextResponse.json(
@@ -137,4 +137,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

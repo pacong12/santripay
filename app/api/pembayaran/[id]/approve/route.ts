@@ -31,7 +31,7 @@ function serializeBigInt(data: any): any {
 
 export async function POST(
   req: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -44,7 +44,7 @@ export async function POST(
       return new NextResponse("Forbidden", { status: 403 })
     }
 
-    const { id } = await Promise.resolve(context.params)
+    const { id } = await context.params;
 
     // Update transaksi dan buat notifikasi dalam satu transaksi
     const result = await prisma.$transaction(async (tx) => {

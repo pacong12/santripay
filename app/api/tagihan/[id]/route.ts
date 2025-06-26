@@ -14,10 +14,7 @@ const tagihanSchema = z.object({
   status: z.enum(["pending", "paid", "overdue"] as const).optional(),
 });
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     let email: string | undefined = undefined;
     // Cek Bearer token di header
@@ -32,7 +29,7 @@ export async function GET(
       }
     } else {
       // Fallback ke session NextAuth
-    const session = await getServerSession(authOptions);
+      const session = await getServerSession(authOptions);
       if (!session?.user) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
       }
@@ -43,7 +40,7 @@ export async function GET(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
     const tagihan = await prisma.tagihan.findUnique({
       where: { id },
       include: {
@@ -103,10 +100,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -116,7 +110,7 @@ export async function PATCH(
       );
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
     const body = await request.json();
     console.log("Received data:", body);
 
@@ -207,18 +201,12 @@ export async function PATCH(
       } : undefined,
     };
 
-    return NextResponse.json({
-      message: "Tagihan berhasil diperbarui",
-      data: serializedTagihan,
-    });
+    return NextResponse.json(serializedTagihan);
   } catch (error) {
-    console.error("Error updating tagihan:", error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Validation error", errors: error.errors },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: error.errors }, { status: 400 });
     }
+    console.error("Error updating tagihan:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
       { status: 500 }
@@ -226,10 +214,7 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -239,7 +224,7 @@ export async function DELETE(
       );
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
 
     // Check if tagihan exists
     const existingTagihan = await prisma.tagihan.findUnique({
@@ -253,14 +238,11 @@ export async function DELETE(
       );
     }
 
-    // Delete tagihan
     await prisma.tagihan.delete({
       where: { id },
     });
 
-    return NextResponse.json({
-      message: "Tagihan berhasil dihapus",
-    });
+    return NextResponse.json({ message: "Tagihan berhasil dihapus" });
   } catch (error) {
     console.error("Error deleting tagihan:", error);
     return NextResponse.json(
