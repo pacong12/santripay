@@ -17,6 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const registerSchema = z.object({
   username: z.string().min(3, "Username minimal 3 karakter"),
@@ -81,61 +82,73 @@ export default function RegisterPage() {
         <h1 className="text-2xl font-bold mb-4 text-center">Daftar Akun</h1>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Masukkan username" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="Masukkan email" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="Masukkan password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Konfirmasi Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="Konfirmasi password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Memproses..." : "Daftar"}
-            </Button>
+            {loading ? (
+              <>
+                <Skeleton className="h-10 w-full mb-2" />
+                <Skeleton className="h-10 w-full mb-2" />
+                <Skeleton className="h-10 w-full mb-2" />
+                <Skeleton className="h-10 w-full mb-2" />
+                <Skeleton className="h-10 w-32 mx-auto" />
+              </>
+            ) : (
+              <>
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masukkan username" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="Masukkan email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Masukkan password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Konfirmasi Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Konfirmasi password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? <Skeleton className="h-6 w-20 mx-auto" /> : "Daftar"}
+                </Button>
+              </>
+            )}
           </form>
         </Form>
         <div className="mt-4 text-center">
