@@ -23,11 +23,17 @@ export async function POST(request: Request) {
     // Ambil order_id dan status
     const { order_id, transaction_status, fraud_status } = body;
     console.log("[MIDTRANS_CALLBACK] order_id:", order_id, "transaction_status:", transaction_status, "fraud_status:", fraud_status);
-    // order_id format: TAGIHAN-<tagihanId>-<timestamp>
-    const tagihanId = order_id.split("-")[1];
-    console.log("[MIDTRANS_CALLBACK] tagihanId:", tagihanId);
 
-    // Temukan transaksi terkait
+    // Cari transaksi berdasarkan order_id
+    const transaksi = await prisma.transaksi.findFirst({ where: { orderId: order_id } });
+    if (!transaksi) {
+      console.error("[MIDTRANS_CALLBACK] Transaksi tidak ditemukan untuk order_id", order_id);
+      return NextResponse.json({ message: "Transaksi tidak ditemukan" }, { status: 404 });
+    }
+    const tagihanId = transaksi.tagihanId as string;
+    console.log("[MIDTRANS_CALLBACK] tagihanId dari transaksi:", tagihanId);
+
+    // Temukan tagihan terkait
     const tagihan = await prisma.tagihan.findUnique({ where: { id: tagihanId } });
     if (!tagihan) {
       console.error("[MIDTRANS_CALLBACK] Tagihan tidak ditemukan", tagihanId);
@@ -49,8 +55,8 @@ export async function POST(request: Request) {
     // Update transaksi dan tagihan
     await prisma.$transaction(async (tx) => {
       // Update atau buat transaksi
-      const transaksi = await tx.transaksi.upsert({
-        where: { tagihanId },
+      const transaksiUpsert = await tx.transaksi.upsert({
+        where: { orderId: order_id },
         update: {
           status: statusTransaksi as StatusTransaksi,
           paymentDate: new Date(),
@@ -62,11 +68,12 @@ export async function POST(request: Request) {
           paymentDate: new Date(),
           status: statusTransaksi as StatusTransaksi,
           note: `Pembayaran via Midtrans (${transaction_status})`,
+          orderId: order_id,
         },
       });
       // Ambil ulang transaksi lengkap dengan relasi
       const transaksiFull = await tx.transaksi.findUnique({
-        where: { id: transaksi.id },
+        where: { id: transaksiUpsert.id },
         include: {
           santri: { include: { user: true } },
           tagihan: { include: { jenisTagihan: true } },
