@@ -13,19 +13,24 @@ function verifySignature(body: any, signatureKey: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log("[MIDTRANS_CALLBACK] body:", body);
     const signatureKey = body.signature_key;
     if (!verifySignature(body, signatureKey)) {
+      console.error("[MIDTRANS_CALLBACK] Invalid signature", { signatureKey, body });
       return NextResponse.json({ message: "Invalid signature" }, { status: 403 });
     }
 
     // Ambil order_id dan status
     const { order_id, transaction_status, fraud_status } = body;
+    console.log("[MIDTRANS_CALLBACK] order_id:", order_id, "transaction_status:", transaction_status, "fraud_status:", fraud_status);
     // order_id format: TAGIHAN-<tagihanId>-<timestamp>
     const tagihanId = order_id.split("-")[1];
+    console.log("[MIDTRANS_CALLBACK] tagihanId:", tagihanId);
 
     // Temukan transaksi terkait
     const tagihan = await prisma.tagihan.findUnique({ where: { id: tagihanId } });
     if (!tagihan) {
+      console.error("[MIDTRANS_CALLBACK] Tagihan tidak ditemukan", tagihanId);
       return NextResponse.json({ message: "Tagihan tidak ditemukan" }, { status: 404 });
     }
 
@@ -39,6 +44,7 @@ export async function POST(request: Request) {
       statusTagihan = "pending";
       statusTransaksi = "rejected";
     }
+    console.log("[MIDTRANS_CALLBACK] Akan update status:", { statusTagihan, statusTransaksi });
 
     // Update transaksi dan tagihan
     await prisma.$transaction(async (tx) => {
@@ -112,8 +118,10 @@ export async function POST(request: Request) {
       }
     });
 
+    console.log("[MIDTRANS_CALLBACK] Callback processed sukses untuk tagihanId:", tagihanId);
     return NextResponse.json({ message: "Callback processed" });
   } catch (error: any) {
+    console.error("[MIDTRANS_CALLBACK ERROR]", error, error?.message, error?.stack);
     return NextResponse.json({ message: "Internal Server Error", detail: error?.message }, { status: 500 });
   }
 } 

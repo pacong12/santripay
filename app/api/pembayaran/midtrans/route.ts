@@ -118,12 +118,14 @@ export async function POST(request: Request) {
         redirectUrl: snapResponse.redirect_url,
       });
     } catch (error: any) {
+      console.error("[MIDTRANS_PAYMENT_POST]", error, error?.message, error?.response?.data);
       return NextResponse.json(
         { message: error?.message || "Internal Server Error", detail: error?.response?.data || null },
         { status: 500 }
       );
     }
   } catch (error) {
+    console.error("[MIDTRANS_PAYMENT_POST]", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { message: "Validation error", errors: error.errors },
