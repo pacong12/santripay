@@ -80,8 +80,17 @@ async function main() {
   const kelas1 = await prisma.kelas.create({
     data: { name: "1A", level: "Tsanawiyah", tahunAjaranId: tahunAjaran2024.id },
   });
-  const kelas2 = await prisma.kelas.create({
+  const kelas2A = await prisma.kelas.create({
+    data: { name: "2A", level: "Tsanawiyah", tahunAjaranId: tahunAjaran2024.id },
+  });
+  const kelas3A = await prisma.kelas.create({
+    data: { name: "3A", level: "Tsanawiyah", tahunAjaranId: tahunAjaran2024.id },
+  });
+  const kelas2B = await prisma.kelas.create({
     data: { name: "2B", level: "Aliyah", tahunAjaranId: tahunAjaran2024.id },
+  });
+  const kelas3B = await prisma.kelas.create({
+    data: { name: "3B", level: "Aliyah", tahunAjaranId: tahunAjaran2024.id },
   });
   console.log("Kelas berhasil dibuat");
 
@@ -110,7 +119,7 @@ async function main() {
       userId: userSantri2.id,
       name: "Siti Rahmawati",
       santriId: "S002",
-      kelasId: kelas2.id,
+      kelasId: kelas2B.id,
       phone: "08444555666",
     },
   });
@@ -245,6 +254,7 @@ async function main() {
       status: StatusTransaksi.pending,
       paymentDate: new Date(),
       note: "Menunggu konfirmasi pembayaran",
+      orderId: `SEED-${tagihanAhmad1.id}-${Date.now()}`,
     },
   });
 
@@ -256,6 +266,7 @@ async function main() {
       status: StatusTransaksi.pending,
       paymentDate: new Date(),
       note: "Menunggu konfirmasi pembayaran",
+      orderId: `SEED-${tagihanSiti1.id}-${Date.now()}`,
     },
   });
 
@@ -267,6 +278,7 @@ async function main() {
       status: StatusTransaksi.pending,
       paymentDate: new Date(),
       note: "Menunggu konfirmasi pembayaran",
+      orderId: `SEED-${tagihanBudi1.id}-${Date.now()}`,
     },
   });
   console.log("Data transaksi berhasil dibuat");
