@@ -115,10 +115,11 @@ export async function POST(req: Request) {
         santriId: validatedData.santriId,
         tagihanId: validatedData.tagihanId,
         amount: BigInt(validatedData.amount),
-        paymentDate: new Date(validatedData.paymentDate),
+        paymentDate: new Date(),
         paymentMethod: validatedData.paymentMethod,
         status: validatedData.status,
         note: validatedData.note,
+        orderId: `MANUAL-${validatedData.tagihanId}-${Date.now()}`,
       },
       include: {
         santri: {
