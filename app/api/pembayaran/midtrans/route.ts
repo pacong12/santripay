@@ -90,8 +90,23 @@ export async function POST(request: Request) {
       );
     }
 
+    // Buat order_id yang valid untuk Midtrans (maks 50 karakter, hanya huruf, angka, strip, underscore)
     const shortId = tagihan.id.replace(/-/g, '').slice(0, 20); // max 20 karakter
     const orderId = `TGHN-${shortId}-${Date.now()}`; // total < 50 karakter
+
+    // Buat transaksi pending di database dengan orderId yang sama
+    await prisma.transaksi.create({
+      data: {
+        tagihanId: tagihan.id,
+        santriId: tagihan.santriId,
+        amount: tagihan.amount,
+        paymentDate: new Date(),
+        status: "pending",
+        note: "Menunggu pembayaran Midtrans",
+        orderId: orderId,
+      }
+    });
+
     const parameter = {
       transaction_details: {
         order_id: orderId,
