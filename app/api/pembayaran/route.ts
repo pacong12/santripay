@@ -142,6 +142,7 @@ export async function POST(request: Request) {
             paymentDate: new Date(),
             note: validatedData.note,
             status: "pending",
+            orderId: `MANUAL-${validatedData.tagihanId}-${Date.now()}`,
           },
           include: {
             santri: {
