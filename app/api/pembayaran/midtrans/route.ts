@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     const parameter = {
       transaction_details: {
         order_id: `TGHN-${tagihan.id.slice(0, 8)}-${Date.now()}`,
-        gross_amount: Number(tagihan.amount),
+        gross_amount: typeof tagihan.amount === "bigint" ? Number(tagihan.amount) : Number(tagihan.amount),
       },
       customer_details: {
         first_name: tagihan.santri.name,
@@ -103,22 +103,27 @@ export async function POST(request: Request) {
       item_details: [
         {
           id: tagihan.id,
-          price: Number(tagihan.amount),
+          price: typeof tagihan.amount === "bigint" ? Number(tagihan.amount) : Number(tagihan.amount),
           quantity: 1,
           name: tagihan.jenisTagihan.name,
         },
       ],
     };
 
-    const snapResponse = await snap.createTransaction(parameter);
-
-    return NextResponse.json({
-      message: "Berhasil membuat transaksi Midtrans",
-      snapToken: snapResponse.token,
-      redirectUrl: snapResponse.redirect_url,
-    });
+    try {
+      const snapResponse = await snap.createTransaction(parameter);
+      return NextResponse.json({
+        message: "Berhasil membuat transaksi Midtrans",
+        snapToken: snapResponse.token,
+        redirectUrl: snapResponse.redirect_url,
+      });
+    } catch (error: any) {
+      return NextResponse.json(
+        { message: error?.message || "Internal Server Error", detail: error?.response?.data || null },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error("[MIDTRANS_PAYMENT_POST]", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { message: "Validation error", errors: error.errors },

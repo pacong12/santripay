@@ -113,8 +113,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ message: "Callback processed" });
-  } catch (error) {
-    console.error("[MIDTRANS_CALLBACK]", error);
-    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ message: "Internal Server Error", detail: error?.message }, { status: 500 });
   }
 } 
