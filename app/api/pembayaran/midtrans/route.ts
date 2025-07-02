@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     // Buat Snap transaction
     const parameter = {
       transaction_details: {
-        order_id: `TGHN-${tagihan.id.slice(0, 8)}-${Date.now()}`,
+        order_id: `TGHN-${tagihan.id}-${Date.now()}`,
         gross_amount: typeof tagihan.amount === "bigint" ? Number(tagihan.amount) : Number(tagihan.amount),
       },
       customer_details: {
