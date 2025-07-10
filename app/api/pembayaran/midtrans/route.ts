@@ -90,11 +90,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // Buat Snap transaction
+    // Buat order_id yang valid untuk Midtrans (maks 50 karakter, hanya huruf, angka, strip, underscore)
+    const shortId = tagihan.id.replace(/-/g, '').slice(0, 20); // max 20 karakter
+    const orderId = `TGHN-${shortId}-${Date.now()}`; // total < 50 karakter
+
+    // Buat transaksi pending di database dengan orderId yang sama
+    await prisma.transaksi.create({
+      data: {
+        tagihanId: tagihan.id,
+        santriId: tagihan.santriId,
+        amount: tagihan.amount,
+        paymentDate: new Date(),
+        status: "pending",
+        note: "Menunggu pembayaran Midtrans",
+        orderId: orderId,
+      }
+    });
+
     const parameter = {
       transaction_details: {
-        order_id: `TGHN-${tagihan.id.slice(0, 8)}-${Date.now()}`,
-        gross_amount: Number(tagihan.amount),
+        order_id: orderId,
+        gross_amount: typeof tagihan.amount === "bigint" ? Number(tagihan.amount) : Number(tagihan.amount),
       },
       customer_details: {
         first_name: tagihan.santri.name,
@@ -103,20 +119,28 @@ export async function POST(request: Request) {
       item_details: [
         {
           id: tagihan.id,
-          price: Number(tagihan.amount),
+          price: typeof tagihan.amount === "bigint" ? Number(tagihan.amount) : Number(tagihan.amount),
           quantity: 1,
           name: tagihan.jenisTagihan.name,
         },
       ],
     };
+    console.log("[MIDTRANS_PAYMENT_POST] parameter:", parameter);
 
-    const snapResponse = await snap.createTransaction(parameter);
-
-    return NextResponse.json({
-      message: "Berhasil membuat transaksi Midtrans",
-      snapToken: snapResponse.token,
-      redirectUrl: snapResponse.redirect_url,
-    });
+    try {
+      const snapResponse = await snap.createTransaction(parameter);
+      return NextResponse.json({
+        message: "Berhasil membuat transaksi Midtrans",
+        snapToken: snapResponse.token,
+        redirectUrl: snapResponse.redirect_url,
+      });
+    } catch (error: any) {
+      console.error("[MIDTRANS_PAYMENT_POST]", error, error?.message, error?.response?.data);
+      return NextResponse.json(
+        { message: error?.message || "Internal Server Error", detail: error?.response?.data || null },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error("[MIDTRANS_PAYMENT_POST]", error);
     if (error instanceof z.ZodError) {

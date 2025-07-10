@@ -69,12 +69,14 @@ import {
 } from "@/components/ui/form";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Kelas {
   id: string;
   name: string;
   level?: string;
-  tahunAjaran?: { id: string; name: string };
+  tahunAjaran?: { id: string; name: string; aktif?: boolean };
 }
 
 interface TahunAjaran {
@@ -185,7 +187,12 @@ export default function KelasPage() {
       toast.success("Kelas berhasil dihapus");
     },
     onError: (err: any) => {
-      toast.error(err.message || "Gagal menghapus kelas");
+      // Deteksi error constraint (foreign key)
+      if (err.message && err.message.toLowerCase().includes('constraint')) {
+        toast.error('Kelas ini masih digunakan.');
+      } else {
+        toast.error(err.message || "Gagal menghapus kelas");
+      }
     },
   });
 
@@ -248,6 +255,26 @@ export default function KelasPage() {
       header: "Tahun Ajaran",
       cell: ({ row }: { row: Row<Kelas> }) => (
         <span>{row.original.tahunAjaran?.name || "-"}</span>
+      ),
+    },
+    {
+      id: "statusTahunAjaran",
+      header: "Status Tahun Ajaran",
+      cell: ({ row }: { row: Row<Kelas> }) => (
+        typeof row.original.tahunAjaran?.aktif !== 'undefined' ? (
+          <span
+            className={
+              "px-2 py-0.5 rounded-full text-xs font-semibold " +
+              (row.original.tahunAjaran.aktif
+                ? "bg-green-100 text-green-800 border border-green-200"
+                : "bg-gray-100 text-gray-600 border border-gray-200")
+            }
+          >
+            {row.original.tahunAjaran.aktif ? "Aktif" : "Tidak Aktif"}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )
       ),
     },
     {
@@ -331,7 +358,81 @@ export default function KelasPage() {
     setShowingDetailKelas(kelas);
   };
 
-  if (isLoadingKelas) return <div>Memuat kelas...</div>;
+  if (isLoadingKelas) return (
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0">
+              <AppSidebar />
+            </SheetContent>
+          </Sheet>
+          <Separator orientation="vertical" className="h-8 hidden md:block" />
+          <div className="flex flex-col">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Kelas</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <h2 className="text-3xl font-bold tracking-tight">Kelas</h2>
+          </div>
+        </div>
+        <Button disabled>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Kelas
+        </Button>
+      </header>
+      <div className="flex-1 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center py-4 gap-2">
+                <Skeleton className="h-10 w-64 max-w-sm" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-2 text-left">No</th>
+                    <th className="px-2 py-2 text-left">Nama</th>
+                    <th className="px-2 py-2 text-left">Level</th>
+                    <th className="px-2 py-2 text-left">Tahun Ajaran</th>
+                    <th className="px-2 py-2 text-left">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...Array(5)].map((_, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-8" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-8 w-20" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
   if (errorKelas) return <div>Terjadi kesalahan: {errorKelas.message}</div>;
 
   return (
@@ -461,6 +562,7 @@ export default function KelasPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
+          <ScrollArea className="max-h-[70vh]">
           <DialogHeader>
             <DialogTitle>{editingKelas ? "Edit Kelas" : "Tambah Kelas"}</DialogTitle>
             <DialogDescription>
@@ -525,16 +627,18 @@ export default function KelasPage() {
               />
               <DialogFooter>
                 <Button type="submit" disabled={addKelasMutation.isPending || updateKelasMutation.isPending}>
-                  {addKelasMutation.isPending || updateKelasMutation.isPending ? "Menyimpan..." : "Simpan"}
+                  {(addKelasMutation.isPending || updateKelasMutation.isPending) ? "Menyimpan..." : "Simpan"}
                 </Button>
               </DialogFooter>
             </form>
           </Form>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!showingDetailKelas} onOpenChange={() => setShowingDetailKelas(null)}>
         <DialogContent className="sm:max-w-[425px]">
+          <ScrollArea className="max-h-[70vh]">
           <DialogHeader>
             <DialogTitle>Detail Kelas</DialogTitle>
             <DialogDescription>
@@ -565,6 +669,7 @@ export default function KelasPage() {
             }}>Edit</Button>
             <Button onClick={() => setShowingDetailKelas(null)}>Tutup</Button>
           </DialogFooter>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
@@ -584,7 +689,11 @@ export default function KelasPage() {
               onClick={() => {
                 if (deletingKelasId) {
                   deleteKelasMutation.mutate(deletingKelasId, {
-                    onSuccess: () => setDeletingKelasId(null),
+                    onSuccess: () => {
+                      queryClient.invalidateQueries({ queryKey: ["kelas"] });
+                      setDeletingKelasId(null);
+                      toast.success("Kelas berhasil dihapus");
+                    },
                     onError: (err: any) => toast.error(err.message || "Gagal menghapus kelas"),
                   });
                 }

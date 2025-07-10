@@ -10,6 +10,9 @@ const santriSchema = z.object({
   santriId: z.string().min(1, "ID Santri tidak boleh kosong").optional(),
   kelasId: z.string().uuid("Pilih kelas yang valid").optional(),
   phone: z.string().optional().transform(val => val === "" ? undefined : val),
+  namaBapak: z.string().optional(),
+  namaIbu: z.string().optional(),
+  alamat: z.string().optional(),
 });
 
 interface Params {
@@ -66,30 +69,49 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
 export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    
     if (!session?.user) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
       );
     }
-
     const { id } = await context.params;
     const body = await req.json();
-    console.log("Data yang diterima untuk update:", body);
-    
-    const validatedData = santriSchema.partial().parse(body);
-    console.log("Data yang sudah divalidasi:", validatedData);
-
-    // Jika ada perubahan santriId, cek apakah sudah digunakan
+    // Jika ada userData, update user dulu
+    if (body.userData && body.userId) {
+      const userUpdateSchema = z.object({
+        username: z.string().min(1, "Username tidak boleh kosong").optional(),
+        email: z.string().email("Email tidak valid").optional(),
+      });
+      const validatedUser = userUpdateSchema.parse(body.userData);
+      try {
+        await prisma.user.update({
+          where: { id: body.userId },
+          data: validatedUser,
+        });
+      } catch (e: any) {
+        return NextResponse.json({ message: e?.message || "Gagal update user" }, { status: 400 });
+      }
+    }
+    // Lanjut update santri (hanya field valid)
+    const santriUpdate: any = {};
+    if (body.name) santriUpdate.name = body.name;
+    if (body.santriId) santriUpdate.santriId = body.santriId;
+    if (body.kelasId) santriUpdate.kelasId = body.kelasId;
+    if (body.phone !== undefined) santriUpdate.phone = body.phone;
+    if (body.namaBapak !== undefined) santriUpdate.namaBapak = body.namaBapak;
+    if (body.namaIbu !== undefined) santriUpdate.namaIbu = body.namaIbu;
+    if (body.alamat !== undefined) santriUpdate.alamat = body.alamat;
+    // Validasi dengan schema
+    const validatedData = santriSchema.partial().parse(santriUpdate);
+    // Cek duplikasi santriId
     if (validatedData.santriId) {
       const existingSantriId = await prisma.santri.findFirst({
         where: {
           santriId: validatedData.santriId,
-          id: { not: id } // Exclude current santri
+          id: { not: id }
         }
       });
-
       if (existingSantriId) {
         return NextResponse.json(
           { message: "ID Santri sudah digunakan" },
@@ -97,7 +119,6 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
         );
       }
     }
-
     const updatedSantri = await prisma.santri.update({
       where: { id },
       data: validatedData,
@@ -118,7 +139,6 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
         }
       }
     });
-
     return NextResponse.json({
       message: "Santri berhasil diperbarui",
       data: updatedSantri
@@ -142,21 +162,25 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
 export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    
     if (!session?.user) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
       );
     }
-
     const { id } = await context.params;
-
-    await prisma.santri.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ message: "Santri berhasil dihapus." }, { status: 200 });
+    // Ambil data santri dulu untuk dapat userId
+    const santri = await prisma.santri.findUnique({ where: { id } });
+    if (!santri) {
+      return NextResponse.json({ message: "Santri tidak ditemukan." }, { status: 404 });
+    }
+    // Hapus santri
+    await prisma.santri.delete({ where: { id } });
+    // Hapus user terkait
+    if (santri.userId) {
+      await prisma.user.delete({ where: { id: santri.userId } });
+    }
+    return NextResponse.json({ message: "Santri dan user berhasil dihapus." }, { status: 200 });
   } catch (error) {
     console.error("Error deleting santri:", error);
     return NextResponse.json(

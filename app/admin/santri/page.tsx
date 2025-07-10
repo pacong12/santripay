@@ -76,6 +76,9 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { ExportButtons } from "@/components/ui/export-buttons";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Santri {
   id: string;
@@ -83,6 +86,9 @@ interface Santri {
   santriId: string;
   kelas: Kelas;
   phone?: string;
+  namaBapak?: string;
+  namaIbu?: string;
+  alamat?: string;
   user: {
     id: string;
     username: string;
@@ -94,6 +100,10 @@ interface Kelas {
   id: string;
   name: string;
   level?: string;
+  tahunAjaran?: {
+    id: string;
+    name: string;
+  };
 }
 
 const santriFormSchema = z.object({
@@ -101,6 +111,9 @@ const santriFormSchema = z.object({
   santriId: z.string().min(1, "ID Santri tidak boleh kosong"),
   kelasId: z.string().min(1, "Kelas harus dipilih"),
   phone: z.string().optional().transform(val => val === "" ? undefined : val),
+  namaBapak: z.string().optional(),
+  namaIbu: z.string().optional(),
+  alamat: z.string().optional(),
 });
 
 const userCreateFormSchema = z.object({
@@ -123,6 +136,10 @@ export default function SantriPage() {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [tahunAjaranAktif, setTahunAjaranAktif] = React.useState<string | null>(null);
+  const [kelasAktif, setKelasAktif] = React.useState<Kelas[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [santriToDelete, setSantriToDelete] = React.useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -166,30 +183,16 @@ export default function SantriPage() {
   });
 
   const updateSantriMutation = useMutation({
-    mutationFn: (updatedSantri: Santri) =>
-      fetch(`/api/santri/${updatedSantri.id}`, {
+    mutationFn: (payload: any) =>
+      fetch(`/api/santri/${payload.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedSantri),
+        body: JSON.stringify(payload),
       }).then((res) => res.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["santri"] });
       setIsDialogOpen(false);
       setEditingSantri(null);
-    },
-  });
-
-  const updateUserMutation = useMutation({
-    mutationFn: async (data: { userId: string, userData: z.infer<typeof userUpdateFormSchema> }) => {
-      const res = await fetch(`/api/auth/users/${data.userId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data.userData),
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["santri"] }); // Invalidate santri to refetch user data
     },
   });
 
@@ -203,6 +206,29 @@ export default function SantriPage() {
       setDeletingSantriId(null);
     },
   });
+
+  React.useEffect(() => {
+    const fetchTahunAjaranKelas = async () => {
+      try {
+        const tahunAjaranRes = await fetch("/api/tahun-ajaran");
+        const tahunAjaranList = await tahunAjaranRes.json();
+        const aktif = tahunAjaranList.find((t: any) => t.aktif);
+        if (aktif) {
+          setTahunAjaranAktif(aktif.id);
+          const kelasRes = await fetch(`/api/kelas?tahunAjaranId=${aktif.id}`);
+          const kelasList = await kelasRes.json();
+          setKelasAktif(kelasList);
+        } else {
+          setTahunAjaranAktif(null);
+          setKelasAktif([]);
+        }
+      } catch (e) {
+        setTahunAjaranAktif(null);
+        setKelasAktif([]);
+      }
+    };
+    fetchTahunAjaranKelas();
+  }, []);
 
   if (errorSantri) return <div>Terjadi kesalahan: {errorSantri.message}</div>;
   if (errorKelas) return <div>Terjadi kesalahan saat memuat kelas: {errorKelas.message}</div>;
@@ -300,6 +326,9 @@ export default function SantriPage() {
       santriId: "",
       kelasId: "",
       phone: "",
+      namaBapak: "",
+      namaIbu: "",
+      alamat: "",
     },
   });
 
@@ -319,6 +348,9 @@ export default function SantriPage() {
         santriId: editingSantri.santriId,
         kelasId: editingSantri.kelas.id,
         phone: editingSantri.phone || "",
+        namaBapak: editingSantri.namaBapak || "",
+        namaIbu: editingSantri.namaIbu || "",
+        alamat: editingSantri.alamat || "",
       });
       userForm.reset({
         username: editingSantri.user.username,
@@ -334,18 +366,31 @@ export default function SantriPage() {
   async function onSubmit(values: z.infer<typeof santriFormSchema>) {
     try {
       if (editingSantri) {
-        const santriUpdateData = { ...editingSantri, ...values };
         const userUpdateData = userForm.getValues();
-
-        await updateSantriMutation.mutateAsync(santriUpdateData);
-        await updateUserMutation.mutateAsync({ 
-          userId: editingSantri.user.id, 
-          userData: { 
-            username: userUpdateData.username, 
-            email: userUpdateData.email 
-          } 
+        if (!userUpdateData.username || !userUpdateData.email) {
+          toast.error("Username dan email tidak boleh kosong");
+          return;
+        }
+        // Kirim update user+santri dalam satu request
+        const res = await updateSantriMutation.mutateAsync({
+          id: editingSantri.id,
+          userId: editingSantri.user.id,
+          userData: {
+            username: userUpdateData.username,
+            email: userUpdateData.email
+          },
+          name: values.name,
+          santriId: values.santriId,
+          kelasId: values.kelasId,
+          phone: values.phone,
+          namaBapak: values.namaBapak,
+          namaIbu: values.namaIbu,
+          alamat: values.alamat,
         });
-
+        if (res && res.message && res.message !== 'Santri berhasil diperbarui') {
+          toast.error(res.message || "Gagal update santri/user");
+          return;
+        }
         setIsDialogOpen(false);
         setEditingSantri(null);
         toast.success("Data santri berhasil diperbarui");
@@ -366,7 +411,10 @@ export default function SantriPage() {
             password: userValues.password,
             name: values.name,
             kelasId: values.kelasId,
-            phone: values.phone
+            phone: values.phone,
+            namaBapak: values.namaBapak,
+            namaIbu: values.namaIbu,
+            alamat: values.alamat,
           }),
         });
 
@@ -383,9 +431,8 @@ export default function SantriPage() {
         userForm.reset();
         toast.success("Santri berhasil ditambahkan");
       }
-    } catch (error) {
-      console.error("Error saat submit:", error);
-      toast.error(error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan data");
+    } catch (error: any) {
+      toast.error(error?.message || "Terjadi kesalahan saat menyimpan data");
     }
   }
 
@@ -396,6 +443,9 @@ export default function SantriPage() {
       santriId: "",
       kelasId: "",
       phone: "",
+      namaBapak: "",
+      namaIbu: "",
+      alamat: "",
     });
     userForm.reset({
       username: "",
@@ -412,6 +462,9 @@ export default function SantriPage() {
       santriId: santri.santriId,
       kelasId: santri.kelas.id,
       phone: santri.phone || "",
+      namaBapak: santri.namaBapak || "",
+      namaIbu: santri.namaIbu || "",
+      alamat: santri.alamat || "",
     });
     userForm.reset({
       username: santri.user.username,
@@ -429,6 +482,9 @@ export default function SantriPage() {
       santriId: "",
       kelasId: "",
       phone: "",
+      namaBapak: "",
+      namaIbu: "",
+      alamat: "",
     });
     userForm.reset({
       username: "",
@@ -438,12 +494,26 @@ export default function SantriPage() {
   };
 
   const confirmDeleteSantri = (id: string) => {
-    setDeletingSantriId(id);
+    setSantriToDelete(id);
+    setShowDeleteDialog(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (deletingSantriId) {
-      deleteSantriMutation.mutate(deletingSantriId);
+  const handleDeleteConfirm = async () => {
+    if (santriToDelete) {
+      try {
+        const res = await deleteSantriMutation.mutateAsync(santriToDelete);
+        if (res && res.message && res.message !== 'Santri berhasil dihapus.') {
+          toast.error(res.message || "Gagal menghapus santri");
+        } else {
+          toast.success("Santri berhasil dihapus");
+          queryClient.invalidateQueries({ queryKey: ["santri"] });
+        }
+      } catch (error: any) {
+        toast.error(error?.message || "Gagal menghapus santri");
+      } finally {
+        setShowDeleteDialog(false);
+        setSantriToDelete(null);
+      }
     }
   };
 
@@ -482,7 +552,7 @@ export default function SantriPage() {
             <h2 className="text-3xl font-bold tracking-tight">Santri</h2>
           </div>
         </div>
-        <Button onClick={handleAddSantri}>
+        <Button disabled={isLoadingSantri} onClick={handleAddSantri}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Tambah Santri
         </Button>
@@ -491,7 +561,8 @@ export default function SantriPage() {
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center py-4">
+              <div className="flex items-center py-4 gap-2">
+                <Skeleton className="h-10 w-64 max-w-sm" style={{ display: isLoadingSantri ? undefined : 'none' }} />
                 <Input
                   placeholder="Filter santri..."
                   value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
@@ -500,54 +571,100 @@ export default function SantriPage() {
                   }
                   className="max-w-sm"
                 />
+                <ExportButtons
+                  data={table.getFilteredRowModel().rows.map((r) => ({
+                    Nama: r.original.name,
+                    "ID Santri": r.original.santriId,
+                    Kelas: r.original.kelas?.name || "-",
+                    Level: r.original.kelas?.level || "-",
+                    Telepon: r.original.phone || "-",
+                    Username: r.original.user?.username || "-",
+                    Email: r.original.user?.email || "-",
+                  }))}
+                  columns={[
+                    { header: "Nama", accessor: "Nama" },
+                    { header: "ID Santri", accessor: "ID Santri" },
+                    { header: "Kelas", accessor: "Kelas" },
+                    { header: "Level", accessor: "Level" },
+                    { header: "Telepon", accessor: "Telepon" },
+                    { header: "Username", accessor: "Username" },
+                    { header: "Email", accessor: "Email" },
+                  ]}
+                  filename="data-santri"
+                />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => {
-                        return (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext()
-                                )}
-                          </TableHead>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow
-                        key={row.id}
-                        data-state={row.getIsSelected() && "selected"}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
+            {isLoadingSantri ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-2 py-2 text-left">Nama</th>
+                      <th className="px-2 py-2 text-left">ID Santri</th>
+                      <th className="px-2 py-2 text-left">Kelas</th>
+                      <th className="px-2 py-2 text-left">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...Array(5)].map((_, i) => (
+                      <tr key={i} className="border-b">
+                        <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                        <td className="px-2 py-2"><Skeleton className="h-4 w-24" /></td>
+                        <td className="px-2 py-2"><Skeleton className="h-4 w-24" /></td>
+                        <td className="px-2 py-2"><Skeleton className="h-8 w-20" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => {
+                          return (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
+                            </TableHead>
+                          );
+                        })}
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={columns.length} className="h-24 text-center">
-                        Tidak ada hasil.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={columns.length} className="h-24 text-center">
+                          Tidak ada hasil.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
             <div className="flex items-center justify-end space-x-2 py-4">
               <div className="flex-1 text-sm text-muted-foreground">
                 {table.getFilteredSelectedRowModel().rows.length} dari{" "}
@@ -578,204 +695,267 @@ export default function SantriPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{editingSantri ? "Edit Santri" : "Tambah Santri"}</DialogTitle>
-            <DialogDescription>
-              {editingSantri
-                ? "Edit informasi santri."
-                : "Tambahkan santri baru ke sistem."}
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={userForm.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Username" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={userForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {!editingSantri && (
+          <ScrollArea className="max-h-[70vh]">
+            <DialogHeader>
+              <DialogTitle>{editingSantri ? "Edit Santri" : "Tambah Santri"}</DialogTitle>
+              <DialogDescription>
+                {editingSantri
+                  ? "Edit informasi santri."
+                  : "Tambahkan santri baru ke sistem."}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={userForm.control}
-                  name="password"
+                  name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel>Username</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Password" {...field} />
+                        <Input placeholder="Username" {...field} required />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nama</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nama Santri" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="santriId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ID Santri</FormLabel>
-                    <FormControl>
-                      <Input placeholder="S001" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="kelasId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Kelas</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value}
-                      defaultValue={field.value}
-                    >
+                <FormField
+                  control={userForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih kelas" />
-                        </SelectTrigger>
+                        <Input placeholder="Email" {...field} required />
                       </FormControl>
-                      <SelectContent>
-                        {kelasData?.map((kelas) => (
-                          <SelectItem key={kelas.id} value={kelas.id}>
-                            {kelas.name} {kelas.level ? `(${kelas.level})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {!editingSantri && (
+                  <FormField
+                    control={userForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nomor Telepon (Opsional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="08123456789" 
-                        {...field} 
-                        value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button type="submit" disabled={addSantriMutation.isPending || updateSantriMutation.isPending || updateUserMutation.isPending}>
-                  {addSantriMutation.isPending || updateSantriMutation.isPending || updateUserMutation.isPending ? "Menyimpan..." : "Simpan"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nama Santri" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="santriId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ID Santri</FormLabel>
+                      <FormControl>
+                        <Input placeholder="S001" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="kelasId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kelas</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih kelas" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {kelasAktif.map((kelas) => (
+                            <SelectItem key={kelas.id} value={kelas.id}>
+                              {kelas.name}
+                              {kelas.level ? ` (${kelas.level})` : ""}
+                              {kelas.tahunAjaran?.name ? ` - ${kelas.tahunAjaran.name}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nomor Telepon (Opsional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="08123456789" 
+                          {...field} 
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="namaBapak"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Bapak</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nama Bapak" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="namaIbu"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Ibu</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nama Ibu" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="alamat"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alamat</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Alamat" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button type="submit" disabled={addSantriMutation.isPending || updateSantriMutation.isPending}>
+                    {(addSantriMutation.isPending || updateSantriMutation.isPending) ? "Menyimpan..." : "Simpan"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!showingDetailSantri} onOpenChange={() => setShowingDetailSantri(null)}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Detail Santri</DialogTitle>
-            <DialogDescription>
-              Informasi lengkap mengenai santri.
-            </DialogDescription>
-          </DialogHeader>
-          {showingDetailSantri && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                <div className="text-right font-medium">Username</div>
-                <div className="col-span-3">{showingDetailSantri.user.username}</div>
+          <ScrollArea className="max-h-[70vh]">
+            <DialogHeader>
+              <DialogTitle>Detail Santri</DialogTitle>
+              <DialogDescription>
+                Informasi lengkap mengenai santri.
+              </DialogDescription>
+            </DialogHeader>
+            {showingDetailSantri && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Username</div>
+                  <div className="col-span-3">{showingDetailSantri.user.username}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Email</div>
+                  <div className="col-span-3">{showingDetailSantri.user.email}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Nama</div>
+                  <div className="col-span-3">{showingDetailSantri.name}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">ID Santri</div>
+                  <div className="col-span-3">{showingDetailSantri.santriId}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Kelas</div>
+                  <div className="col-span-3">
+                    {showingDetailSantri.kelas.name}
+                    {showingDetailSantri.kelas.level ? ` (${showingDetailSantri.kelas.level})` : ""}
+                    {showingDetailSantri.kelas.tahunAjaran?.name ? ` - ${showingDetailSantri.kelas.tahunAjaran.name}` : ""}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="text-right font-medium">Nomor Telepon</div>
+                  <div className="col-span-3">{showingDetailSantri.phone || "-"}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Nama Bapak</div>
+                  <div className="col-span-3">{showingDetailSantri.namaBapak || "-"}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Nama Ibu</div>
+                  <div className="col-span-3">{showingDetailSantri.namaIbu || "-"}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Alamat</div>
+                  <div className="col-span-3">{showingDetailSantri.alamat || "-"}</div>
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                <div className="text-right font-medium">Email</div>
-                <div className="col-span-3">{showingDetailSantri.user.email}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                <div className="text-right font-medium">Nama</div>
-                <div className="col-span-3">{showingDetailSantri.name}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                <div className="text-right font-medium">ID Santri</div>
-                <div className="col-span-3">{showingDetailSantri.santriId}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                <div className="text-right font-medium">Kelas</div>
-                <div className="col-span-3">{showingDetailSantri.kelas.name} {showingDetailSantri.kelas.level ? `(${showingDetailSantri.kelas.level})` : ""}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <div className="text-right font-medium">Nomor Telepon</div>
-                <div className="col-span-3">{showingDetailSantri.phone || "-"}</div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setEditingSantri(showingDetailSantri);
-              setIsDialogOpen(true);
-              setShowingDetailSantri(null);
-            }}>Edit</Button>
-            <Button onClick={() => setShowingDetailSantri(null)}>Tutup</Button>
-          </DialogFooter>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setEditingSantri(showingDetailSantri);
+                setIsDialogOpen(true);
+                setShowingDetailSantri(null);
+              }}>Edit</Button>
+              <Button onClick={() => setShowingDetailSantri(null)}>Tutup</Button>
+            </DialogFooter>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!deletingSantriId} onOpenChange={() => setDeletingSantriId(null)}>
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Konfirmasi Hapus</DialogTitle>
-            <DialogDescription>
-              Apakah Anda yakin ingin menghapus santri ini? Tindakan ini tidak dapat dibatalkan.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingSantriId(null)}>Batal</Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDeleteConfirm}
-              disabled={deleteSantriMutation.isPending}
-            >
-              {deleteSantriMutation.isPending ? "Menghapus..." : "Hapus"}
-            </Button>
-          </DialogFooter>
+          <ScrollArea className="max-h-[70vh]">
+            <DialogHeader>
+              <DialogTitle>Konfirmasi Hapus</DialogTitle>
+              <DialogDescription>
+                Apakah Anda yakin ingin menghapus santri ini? Tindakan ini tidak dapat dibatalkan.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Batal</Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteConfirm}
+                disabled={deleteSantriMutation.isPending}
+              >
+                {deleteSantriMutation.isPending ? "Menghapus..." : "Hapus"}
+              </Button>
+            </DialogFooter>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>

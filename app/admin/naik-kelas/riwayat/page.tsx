@@ -33,6 +33,16 @@ import { format, parseISO } from "date-fns";
 import { id as idLocale } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
+import Link from "next/link";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Definisi tipe untuk riwayat kelas
 interface RiwayatKelas {
@@ -75,6 +85,9 @@ export default function RiwayatNaikKelasPage() {
     to: undefined
   });
 
+  // State loading untuk data riwayat
+  const [loadingRiwayat, setLoadingRiwayat] = useState(true);
+
   // Fungsi untuk mengambil data riwayat kenaikan kelas
   const fetchRiwayatNaikKelas = async (tahunAjaranId?: string) => {
     try {
@@ -106,6 +119,8 @@ export default function RiwayatNaikKelasPage() {
       toast.error('Gagal memuat riwayat kenaikan kelas', {
         description: error instanceof Error ? error.message : undefined
       });
+    } finally {
+      setLoadingRiwayat(false);
     }
   };
 
@@ -151,6 +166,7 @@ export default function RiwayatNaikKelasPage() {
 
   useEffect(() => {
     if (selectedTahunAjaran) {
+      setLoadingRiwayat(true);
       fetchRiwayatNaikKelas(selectedTahunAjaran);
     }
   }, [selectedTahunAjaran, dateRange]);
@@ -179,8 +195,83 @@ export default function RiwayatNaikKelasPage() {
     return format(dateRange.from, "dd LLL y", { locale: idLocale });
   };
 
+  if (loadingRiwayat) return (
+    <div className="p-4 space-y-4">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin">Admin</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin/naik-kelas">Naik Kelas</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Riwayat Kenaikan Kelas</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <Card>
+        <CardHeader>
+          <CardTitle>Riwayat Kenaikan Kelas</CardTitle>
+          <CardDescription>Daftar santri yang telah naik kelas</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex space-x-4 mb-4">
+            <div className="flex-1"><Skeleton className="h-10 w-full rounded-md" /></div>
+            <div className="flex-1"><Skeleton className="h-10 w-full rounded-md" /></div>
+            <div className="flex-1"><Skeleton className="h-10 w-full rounded-md" /></div>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead><Skeleton className="h-4 w-8" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-32" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-32" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-32" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-32" /></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...Array(5)].map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   return (
     <div className="p-4 space-y-4">
+      {/* Breadcrumb shadcn */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin">Admin</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin/naik-kelas">Naik Kelas</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Riwayat Kenaikan Kelas</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <h2 className="text-3xl font-bold tracking-tight">Riwayat Kenaikan Kelas</h2>
+      {/* Card utama */}
       <Card>
         <CardHeader>
           <CardTitle>Riwayat Kenaikan Kelas</CardTitle>

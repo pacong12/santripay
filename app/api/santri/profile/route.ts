@@ -24,6 +24,7 @@ type UserWithSantriAndNotifications = User & {
 const updateProfileSchema = z.object({
   name: z.string().min(1, "Nama tidak boleh kosong"),
   phone: z.string().optional(),
+  email: z.string().email().optional(),
   receiveEmailNotifications: z.boolean().optional(),
   receiveAppNotifications: z.boolean().optional(),
 });
@@ -61,14 +62,29 @@ export async function GET(req: Request) {
       where: {
         email: email!,
       },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        receiveEmailNotifications: true,
+        receiveAppNotifications: true,
         santri: {
-          include: {
-            kelas: true,
-          },
-        },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            santriId: true,
+            alamat: true,
+            namaBapak: true,
+            namaIbu: true,
+            kelas: {
+              select: {
+                name: true,
+              }
+            }
+          }
+        }
       },
-    })) as UserWithSantriAndKelasAndNotifications;
+    })) as any;
 
     if (!user || !user.santri || !user.santri.kelas) {
       return NextResponse.json(
@@ -85,6 +101,9 @@ export async function GET(req: Request) {
       phone: user.santri.phone,
       nis: user.santri.santriId,
       kelas: user.santri.kelas.name,
+      alamat: user.santri.alamat,
+      namaBapak: user.santri.namaBapak,
+      namaIbu: user.santri.namaIbu,
       receiveEmailNotifications: user.receiveEmailNotifications,
       receiveAppNotifications: user.receiveAppNotifications,
     };
@@ -138,10 +157,29 @@ export async function PATCH(req: Request) {
       where: {
         email: email!,
       },
-      include: {
-        santri: true,
+      select: {
+        id: true,
+        email: true,
+        receiveEmailNotifications: true,
+        receiveAppNotifications: true,
+        santri: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            santriId: true,
+            alamat: true,
+            namaBapak: true,
+            namaIbu: true,
+            kelas: {
+              select: {
+                name: true,
+              }
+            }
+          }
+        }
       },
-    })) as UserWithSantriAndNotifications;
+    })) as any;
 
     if (!user || !user.santri) {
       return NextResponse.json(
@@ -150,6 +188,7 @@ export async function PATCH(req: Request) {
       );
     }
 
+    // Update santri
     const updatedSantri = await prisma.santri.update({
       where: {
         id: user.santri.id,
@@ -162,12 +201,13 @@ export async function PATCH(req: Request) {
         kelas: true,
       },
     });
-
+    // Update user (email & notifikasi)
     const updatedUser = await prisma.user.update({
       where: {
         id: user.id,
       },
       data: {
+        email: validatedData.email ?? user.email,
         receiveEmailNotifications: validatedData.receiveEmailNotifications,
         receiveAppNotifications: validatedData.receiveAppNotifications,
       },
@@ -181,6 +221,9 @@ export async function PATCH(req: Request) {
       phone: updatedSantri.phone,
       nis: updatedSantri.santriId,
       kelas: updatedSantri.kelas.name,
+      alamat: updatedSantri.alamat,
+      namaBapak: updatedSantri.namaBapak,
+      namaIbu: updatedSantri.namaIbu,
       receiveEmailNotifications: updatedUser.receiveEmailNotifications,
       receiveAppNotifications: updatedUser.receiveAppNotifications,
     };

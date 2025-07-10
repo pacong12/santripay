@@ -39,6 +39,7 @@ import Link from "next/link"
 import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Notifikasi {
   id: string
@@ -170,8 +171,16 @@ export default function NotifikasiPage() {
           <CardContent>
             <ScrollArea className="h-[calc(100vh-16rem)]">
               {isLoading ? (
-                <div className="flex h-full items-center justify-center py-10">
-                  <p className="text-sm text-muted-foreground">Memuat notifikasi...</p>
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex items-start gap-4 rounded-lg border p-4">
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-40 mb-2" />
+                        <Skeleton className="h-4 w-64" />
+                        <Skeleton className="h-3 w-24 mt-2" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : notifikasi.length === 0 ? (
                 <div className="flex h-full items-center justify-center py-10">

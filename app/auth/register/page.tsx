@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
+import Image from 'next/image';
 
 const registerSchema = z.object({
   username: z.string().min(3, "Username minimal 3 karakter"),
@@ -79,6 +80,9 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <Card className="w-full max-w-md p-6">
+        <div className="flex flex-col items-center justify-center mb-4">
+          <Image src="/favicon.ico" alt="DUPay Logo" width={48} height={48} className="rounded-lg" />
+        </div>
         <h1 className="text-2xl font-bold mb-4 text-center">Daftar Akun</h1>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

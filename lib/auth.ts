@@ -39,17 +39,33 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
-          throw new Error("Username dan password harus diisi");
+          throw new Error("NIS/Username dan password harus diisi");
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            username: credentials.username
-          }
+        // Coba cari user berdasarkan username
+        let user = await prisma.user.findUnique({
+          where: { username: credentials.username }
         });
 
+        // Jika tidak ditemukan, cek ke tabel santriId
         if (!user) {
-          throw new Error("Username atau password salah");
+          const santri = await prisma.santri.findUnique({
+            where: { santriId: credentials.username }
+          });
+          if (santri) {
+            user = await prisma.user.findUnique({
+              where: { id: santri.userId }
+            });
+          }
+        }
+
+        if (!user) {
+          throw new Error("NIS/Username atau password salah");
+        }
+
+        // Jika admin, hanya boleh login pakai username
+        if (user.role === "admin" && user.username !== credentials.username) {
+          throw new Error("Admin hanya bisa login dengan username");
         }
 
         const isPasswordValid = await bcrypt.compare(
@@ -58,7 +74,7 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
-          throw new Error("Username atau password salah");
+          throw new Error("NIS/Username atau password salah");
         }
 
         return {

@@ -13,19 +13,30 @@ function verifySignature(body: any, signatureKey: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log("[MIDTRANS_CALLBACK] body:", body);
     const signatureKey = body.signature_key;
     if (!verifySignature(body, signatureKey)) {
+      console.error("[MIDTRANS_CALLBACK] Invalid signature", { signatureKey, body });
       return NextResponse.json({ message: "Invalid signature" }, { status: 403 });
     }
 
     // Ambil order_id dan status
     const { order_id, transaction_status, fraud_status } = body;
-    // order_id format: TAGIHAN-<tagihanId>-<timestamp>
-    const tagihanId = order_id.split("-")[1];
+    console.log("[MIDTRANS_CALLBACK] order_id:", order_id, "transaction_status:", transaction_status, "fraud_status:", fraud_status);
 
-    // Temukan transaksi terkait
+    // Cari transaksi berdasarkan order_id
+    const transaksi = await prisma.transaksi.findFirst({ where: { orderId: order_id } });
+    if (!transaksi) {
+      console.error("[MIDTRANS_CALLBACK] Transaksi tidak ditemukan untuk order_id", order_id);
+      return NextResponse.json({ message: "Transaksi tidak ditemukan" }, { status: 404 });
+    }
+    const tagihanId = transaksi.tagihanId as string;
+    console.log("[MIDTRANS_CALLBACK] tagihanId dari transaksi:", tagihanId);
+
+    // Temukan tagihan terkait
     const tagihan = await prisma.tagihan.findUnique({ where: { id: tagihanId } });
     if (!tagihan) {
+      console.error("[MIDTRANS_CALLBACK] Tagihan tidak ditemukan", tagihanId);
       return NextResponse.json({ message: "Tagihan tidak ditemukan" }, { status: 404 });
     }
 
@@ -39,12 +50,13 @@ export async function POST(request: Request) {
       statusTagihan = "pending";
       statusTransaksi = "rejected";
     }
+    console.log("[MIDTRANS_CALLBACK] Akan update status:", { statusTagihan, statusTransaksi });
 
     // Update transaksi dan tagihan
     await prisma.$transaction(async (tx) => {
       // Update atau buat transaksi
-      const transaksi = await tx.transaksi.upsert({
-        where: { tagihanId },
+      const transaksiUpsert = await tx.transaksi.upsert({
+        where: { orderId: order_id },
         update: {
           status: statusTransaksi as StatusTransaksi,
           paymentDate: new Date(),
@@ -56,11 +68,12 @@ export async function POST(request: Request) {
           paymentDate: new Date(),
           status: statusTransaksi as StatusTransaksi,
           note: `Pembayaran via Midtrans (${transaction_status})`,
+          orderId: order_id,
         },
       });
       // Ambil ulang transaksi lengkap dengan relasi
       const transaksiFull = await tx.transaksi.findUnique({
-        where: { id: transaksi.id },
+        where: { id: transaksiUpsert.id },
         include: {
           santri: { include: { user: true } },
           tagihan: { include: { jenisTagihan: true } },
@@ -112,9 +125,10 @@ export async function POST(request: Request) {
       }
     });
 
+    console.log("[MIDTRANS_CALLBACK] Callback processed sukses untuk tagihanId:", tagihanId);
     return NextResponse.json({ message: "Callback processed" });
-  } catch (error) {
-    console.error("[MIDTRANS_CALLBACK]", error);
-    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("[MIDTRANS_CALLBACK ERROR]", error, error?.message, error?.stack);
+    return NextResponse.json({ message: "Internal Server Error", detail: error?.message }, { status: 500 });
   }
 } 

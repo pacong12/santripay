@@ -47,6 +47,16 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useState } from "react"
+import { ExportButtons } from "@/components/ui/export-buttons"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Pembayaran {
   id: string
@@ -58,6 +68,7 @@ interface Pembayaran {
   status: "pending" | "approved" | "rejected"
   createdAt: string
   updatedAt: string
+  paymentMethod?: string
   santri: {
     name: string
     kelas: {
@@ -77,6 +88,10 @@ export default function PembayaranPage() {
   const router = useRouter()
   const [selectedPembayaran, setSelectedPembayaran] = useState<Pembayaran | null>(null)
   const [rejectionNote, setRejectionNote] = useState("")
+  const [showDetail, setShowDetail] = useState<Pembayaran | null>(null)
+  const [filterNama, setFilterNama] = useState("");
+  const [filterKelas, setFilterKelas] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
 
   const { data: pembayaran, isLoading } = useQuery<Pembayaran[]>({
     queryKey: ["pembayaran"],
@@ -158,6 +173,13 @@ export default function PembayaranPage() {
     }
   }
 
+  const filteredPembayaran = (pembayaran || []).filter((item) => {
+    const namaMatch = item.santri.name.toLowerCase().includes(filterNama.toLowerCase());
+    const kelasMatch = item.santri.kelas.name.toLowerCase().includes(filterKelas.toLowerCase());
+    const statusMatch = filterStatus === "" || item.status === filterStatus;
+    return namaMatch && kelasMatch && statusMatch;
+  });
+
   return (
     <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
       <header className="flex h-14 shrink-0 items-center justify-between w-full">
@@ -198,18 +220,104 @@ export default function PembayaranPage() {
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <CardTitle>Daftar Pembayaran</CardTitle>
-              <CardDescription>Kelola dan verifikasi pembayaran dari santri.</CardDescription>
+              <div className="flex flex-col sm:flex-row gap-2 items-center">
+                <Input
+                  placeholder="Filter nama santri..."
+                  value={filterNama}
+                  onChange={e => setFilterNama(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Input
+                  placeholder="Filter kelas..."
+                  value={filterKelas}
+                  onChange={e => setFilterKelas(e.target.value)}
+                  className="max-w-xs"
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="min-w-[140px] justify-between">
+                      {filterStatus === "" ? "Semua Status" :
+                        filterStatus === "pending" ? "Menunggu" :
+                        filterStatus === "approved" ? "Disetujui" :
+                        filterStatus === "rejected" ? "Ditolak" : filterStatus}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setFilterStatus("")}>Semua Status</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setFilterStatus("pending")}>Menunggu</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setFilterStatus("approved")}>Disetujui</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setFilterStatus("rejected")}>Ditolak</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <ExportButtons
+                data={
+                  filteredPembayaran.slice().sort((a, b) => {
+                    const namaA = a.santri.name.toLowerCase();
+                    const namaB = b.santri.name.toLowerCase();
+                    if (namaA < namaB) return -1;
+                    if (namaA > namaB) return 1;
+                    const kelasA = a.santri.kelas.name.toLowerCase();
+                    const kelasB = b.santri.kelas.name.toLowerCase();
+                    if (kelasA < kelasB) return -1;
+                    if (kelasA > kelasB) return 1;
+                    return 0;
+                  }).map((item) => ({
+                  Santri: item.santri.name,
+                  Kelas: item.santri.kelas.name,
+                  "Jenis Tagihan": item.tagihan.jenisTagihan.name,
+                  Jumlah: item.amount,
+                  Tanggal: item.paymentDate,
+                  Status: item.status === "pending" ? "Menunggu" : item.status === "approved" ? "Disetujui" : item.status === "rejected" ? "Ditolak" : item.status,
+                  Catatan: item.note || "-",
+                  }))
+                }
+                columns={[
+                  { header: "Santri", accessor: "Santri" },
+                  { header: "Kelas", accessor: "Kelas" },
+                  { header: "Jenis Tagihan", accessor: "Jenis Tagihan" },
+                  { header: "Jumlah", accessor: "Jumlah" },
+                  { header: "Tanggal", accessor: "Tanggal" },
+                  { header: "Status", accessor: "Status" },
+                  { header: "Catatan", accessor: "Catatan" },
+                ]}
+                filename="data-pembayaran"
+              />
             </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex h-full items-center justify-center py-10">
-                <p className="text-sm text-muted-foreground">Memuat data pembayaran...</p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Santri</TableHead>
+                      <TableHead>Kelas</TableHead>
+                      <TableHead>Jenis Tagihan</TableHead>
+                      <TableHead>Jumlah</TableHead>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...Array(5)].map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-20" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            ) : pembayaran?.length === 0 ? (
+            ) : filteredPembayaran?.length === 0 ? (
               <div className="flex h-full items-center justify-center py-10">
-                <p className="text-sm text-muted-foreground">Tidak ada pembayaran</p>
+                <p className="text-sm text-muted-foreground">Tidak ada pembayaran yang sesuai dengan filter</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -222,12 +330,11 @@ export default function PembayaranPage() {
                       <TableHead>Jumlah</TableHead>
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Catatan</TableHead>
                       <TableHead>Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pembayaran?.map((item) => (
+                    {filteredPembayaran?.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>{item.santri.name}</TableCell>
                         <TableCell>{item.santri.kelas.name}</TableCell>
@@ -245,57 +352,67 @@ export default function PembayaranPage() {
                           })}
                         </TableCell>
                         <TableCell>{getStatusBadge(item.status)}</TableCell>
-                        <TableCell>{item.note}</TableCell>
                         <TableCell>
-                          {item.status === "pending" && (
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleApprove(item.id)}
-                              >
-                                Setujui
-                              </Button>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => setSelectedPembayaran(item)}
-                                  >
-                                    Tolak
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader>
-                                    <DialogTitle>Tolak Pembayaran</DialogTitle>
-                                    <DialogDescription>
-                                      Berikan alasan penolakan pembayaran ini.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="grid gap-4 py-4">
-                                    <div className="grid gap-2">
-                                      <Label htmlFor="note">Alasan Penolakan</Label>
-                                      <Textarea
-                                        id="note"
-                                        value={rejectionNote}
-                                        onChange={(e) => setRejectionNote(e.target.value)}
-                                        placeholder="Masukkan alasan penolakan..."
-                                      />
-                                    </div>
-                                  </div>
-                                  <DialogFooter>
+                          <div className="flex gap-2">
+                            {item.status === "pending" && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleApprove(item.id)}
+                                >
+                                  Setujui
+                                </Button>
+                                <Dialog>
+                                  <DialogTrigger asChild>
                                     <Button
                                       variant="destructive"
-                                      onClick={() => handleReject(item.id)}
+                                      size="sm"
+                                      onClick={() => setSelectedPembayaran(item)}
                                     >
-                                      Tolak Pembayaran
+                                      Tolak
                                     </Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            </div>
-                          )}
+                                  </DialogTrigger>
+                                  <DialogContent className="sm:max-w-[425px]">
+                                    <ScrollArea className="max-h-[70vh]">
+                                      <DialogHeader>
+                                        <DialogTitle>Tolak Pembayaran</DialogTitle>
+                                        <DialogDescription>
+                                          Berikan alasan penolakan pembayaran ini.
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                      <div className="grid gap-4 py-4">
+                                        <div className="grid gap-2">
+                                          <Label htmlFor="note">Alasan Penolakan</Label>
+                                          <Textarea
+                                            id="note"
+                                            value={rejectionNote}
+                                            onChange={(e) => setRejectionNote(e.target.value)}
+                                            placeholder="Masukkan alasan penolakan..."
+                                          />
+                                        </div>
+                                      </div>
+                                    </ScrollArea>
+                                    <DialogFooter>
+                                      <Button
+                                        variant="destructive"
+                                        onClick={() => handleReject(item.id)}
+                                      >
+                                        Tolak Pembayaran
+                                      </Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                              </>
+                            )}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setShowDetail(item)}
+                            >
+                              Lihat Detail
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -306,6 +423,55 @@ export default function PembayaranPage() {
           </CardContent>
         </Card>
       </div>
+
+      {showDetail && (
+        <Dialog open={!!showDetail} onOpenChange={() => setShowDetail(null)}>
+          <DialogContent className="sm:max-w-[425px]">
+            <ScrollArea className="max-h-[70vh]">
+              <DialogHeader>
+                <DialogTitle>Detail Pembayaran</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Santri</div>
+                  <div className="col-span-3">{showDetail.santri.name}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Kelas</div>
+                  <div className="col-span-3">{showDetail.santri.kelas.name}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Jenis Tagihan</div>
+                  <div className="col-span-3">{showDetail.tagihan.jenisTagihan.name}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Jumlah</div>
+                  <div className="col-span-3">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(showDetail.amount)}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Tanggal</div>
+                  <div className="col-span-3">{new Date(showDetail.paymentDate).toLocaleString("id-ID")}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Metode Pembayaran</div>
+                  <div className="col-span-3">{showDetail.paymentMethod || "-"}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                  <div className="text-right font-medium">Status</div>
+                  <div className="col-span-3">{getStatusBadge(showDetail.status)}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="text-right font-medium">Catatan</div>
+                  <div className="col-span-3">{showDetail.note || "-"}</div>
+                </div>
+              </div>
+            </ScrollArea>
+            <DialogFooter>
+              <Button onClick={() => setShowDetail(null)}>Tutup</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 } 

@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { ExportButtons } from "@/components/ui/export-buttons";
 
 interface Transaksi {
   id: string;
@@ -114,6 +115,25 @@ export default function RiwayatPembayaranSantriPage() {
       <Card>
         <CardHeader>
           <CardTitle>Daftar Transaksi</CardTitle>
+          <ExportButtons
+            data={transaksi.map((t: any) => ({
+              "Jenis Tagihan": t.tagihan.jenisTagihan.name,
+              "Tanggal": new Date(t.paymentDate).toLocaleDateString("id-ID"),
+              "Jumlah": t.amount,
+              "Status": t.status === "pending" ? "Menunggu" : t.status === "approved" ? "Disetujui" : t.status === "rejected" ? "Ditolak" : t.status,
+              "Alasan Ditolak": t.rejectionReason || "-",
+              "Catatan": t.note || "-",
+            }))}
+            columns={[
+              { header: "Jenis Tagihan", accessor: "Jenis Tagihan" },
+              { header: "Tanggal", accessor: "Tanggal" },
+              { header: "Jumlah", accessor: "Jumlah" },
+              { header: "Status", accessor: "Status" },
+              { header: "Alasan Ditolak", accessor: "Alasan Ditolak" },
+              { header: "Catatan", accessor: "Catatan" },
+            ]}
+            filename="riwayat-pembayaran"
+          />
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[calc(100vh-16rem)]">

@@ -39,6 +39,9 @@ model Santri {
   kelasId   String    @map("kelas_id")
   kelas     Kelas     @relation(fields: [kelasId], references: [id], onDelete: Cascade)
   phone     String?   @db.VarChar(15)
+  namaBapak String?
+  namaIbu   String?
+  alamat    String?
   tagihan   Tagihan[]
   transaksi Transaksi[]
   createdAt DateTime  @default(now())
@@ -106,6 +109,7 @@ model Transaksi {
   paymentDate  DateTime        @map("payment_date")
   paymentMethod String?
   note         String?
+  orderId      String         @unique
   createdAt    DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime        @updatedAt @map("updated_at")
 

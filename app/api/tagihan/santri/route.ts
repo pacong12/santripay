@@ -83,6 +83,7 @@ export async function GET(req: Request) {
           select: {
             id: true,
             status: true,
+            paymentMethod: true, // tambahkan ini
           },
         },
         tahunAjaran: {

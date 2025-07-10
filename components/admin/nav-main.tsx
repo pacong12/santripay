@@ -9,6 +9,7 @@ import {
   Settings2,
   Users,
   Bell,
+  ChevronsUpDown,
   type LucideIcon,
 } from "lucide-react"
 
@@ -21,6 +22,8 @@ import {
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
+import React from "react"
 
 interface NavItem {
   title: string
@@ -31,14 +34,21 @@ interface NavItem {
 
 export function NavMain() {
   const pathname = usePathname()
+  // State open/close per grup (kecuali utama)
+  const [openDataMaster, setOpenDataMaster] = React.useState(true)
+  const [openTransaksi, setOpenTransaksi] = React.useState(true)
+  const [openLainnya, setOpenLainnya] = React.useState(true)
 
-  const items: NavItem[] = [
+  // Kelompok menu
+  const utama = [
     {
       title: "Dashboard",
       url: "/admin/dashboard",
       icon: LayoutDashboard,
       isActive: pathname === "/admin/dashboard",
     },
+  ]
+  const dataMaster = [
     {
       title: "Santri",
       url: "/admin/santri",
@@ -46,34 +56,10 @@ export function NavMain() {
       isActive: pathname.startsWith("/admin/santri"),
     },
     {
-      title: "Pembayaran",
-      url: "/admin/pembayaran",
-      icon: CreditCard,
-      isActive: pathname.startsWith("/admin/pembayaran"),
-    },
-    {
-      title: "Notifikasi",
-      url: "/admin/notifikasi",
-      icon: Bell,
-      isActive: pathname.startsWith("/admin/notifikasi"),
-    },
-    {
-      title: "Transaksi",
-      url: "/admin/transaksi",
-      icon: BarChart3,
-      isActive: pathname.startsWith("/admin/transaksi"),
-    },
-    {
       title: "Kelas",
       url: "/admin/kelas",
       icon: School,
       isActive: pathname.startsWith("/admin/kelas"),
-    },
-    {
-      title: "Naik Kelas",
-      url: "/admin/naik-kelas",
-      icon: School,
-      isActive: pathname.startsWith("/admin/naik-kelas"),
     },
     {
       title: "Tahun Ajaran",
@@ -87,6 +73,34 @@ export function NavMain() {
       icon: BookOpen,
       isActive: pathname.startsWith("/admin/jenis-tagihan"),
     },
+  ]
+  const transaksi = [
+    {
+      title: "Pembayaran",
+      url: "/admin/pembayaran",
+      icon: CreditCard,
+      isActive: pathname.startsWith("/admin/pembayaran"),
+    },
+    {
+      title: "Transaksi",
+      url: "/admin/transaksi",
+      icon: BarChart3,
+      isActive: pathname.startsWith("/admin/transaksi"),
+    },
+    {
+      title: "Naik Kelas",
+      url: "/admin/naik-kelas",
+      icon: School,
+      isActive: pathname.startsWith("/admin/naik-kelas"),
+    },
+  ]
+  const lainnya = [
+    {
+      title: "Notifikasi",
+      url: "/admin/notifikasi",
+      icon: Bell,
+      isActive: pathname.startsWith("/admin/notifikasi"),
+    },
     {
       title: "Pengaturan",
       url: "/admin/pengaturan",
@@ -96,20 +110,104 @@ export function NavMain() {
   ]
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Menu</SidebarGroupLabel>
-      <SidebarMenu>
-        {items.map((item) => (
-          <SidebarMenuItem key={item.title}>
-            <SidebarMenuButton asChild data-active={item.isActive}>
-              <Link href={item.url}>
-                <item.icon />
-                <span>{item.title}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
-    </SidebarGroup>
+    <>
+      {/* Utama selalu terbuka, tidak collapsible */}
+      <SidebarGroup>
+        <SidebarGroupLabel className="flex-1 select-none">Utama</SidebarGroupLabel>
+        <SidebarMenu>
+          {utama.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild data-active={item.isActive}>
+                <Link href={item.url}>
+                  <item.icon />
+                  <span>{item.title}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroup>
+      {/* Data Master */}
+      <Collapsible open={openDataMaster} onOpenChange={setOpenDataMaster}>
+        <SidebarGroup>
+          <div className="flex items-center justify-between pr-2">
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex-1 cursor-pointer select-none flex items-center justify-between">
+                Data Master
+                <ChevronsUpDown className={`ml-2 transition-transform ${openDataMaster ? '' : 'rotate-180'}`} size={16} />
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <SidebarMenu>
+              {dataMaster.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild data-active={item.isActive}>
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </CollapsibleContent>
+        </SidebarGroup>
+      </Collapsible>
+      {/* Transaksi */}
+      <Collapsible open={openTransaksi} onOpenChange={setOpenTransaksi}>
+        <SidebarGroup>
+          <div className="flex items-center justify-between pr-2">
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex-1 cursor-pointer select-none flex items-center justify-between">
+                Transaksi
+                <ChevronsUpDown className={`ml-2 transition-transform ${openTransaksi ? '' : 'rotate-180'}`} size={16} />
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <SidebarMenu>
+              {transaksi.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild data-active={item.isActive}>
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </CollapsibleContent>
+        </SidebarGroup>
+      </Collapsible>
+      {/* Lainnya */}
+      <Collapsible open={openLainnya} onOpenChange={setOpenLainnya}>
+        <SidebarGroup>
+          <div className="flex items-center justify-between pr-2">
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex-1 cursor-pointer select-none flex items-center justify-between">
+                Lainnya
+                <ChevronsUpDown className={`ml-2 transition-transform ${openLainnya ? '' : 'rotate-180'}`} size={16} />
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <SidebarMenu>
+              {lainnya.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild data-active={item.isActive}>
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </CollapsibleContent>
+        </SidebarGroup>
+      </Collapsible>
+    </>
   )
 } 

@@ -51,6 +51,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Statistik {
   totalSantri: number;
@@ -169,10 +170,80 @@ export default function DashboardAdminPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Memuat data...</p>
+      <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+        <header className="flex h-14 shrink-0 items-center justify-between w-full">
+          <div className="flex items-center gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0">
+                <AppSidebar />
+              </SheetContent>
+            </Sheet>
+            <Separator orientation="vertical" className="h-8 hidden md:block" />
+            <div className="flex flex-col">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+              <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+            </div>
+          </div>
+        </header>
+        <div className="flex-1 space-y-6">
+          {/* Statistik Cards Skeleton */}
+          <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-5">
+            {[...Array(5)].map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-4 rounded-full" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-32" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {/* Tabel Transaksi Skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40 mb-2" />
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-2 py-2 text-left">Santri</th>
+                      <th className="px-2 py-2 text-left">Jenis Tagihan</th>
+                      <th className="px-2 py-2 text-left">Jumlah</th>
+                      <th className="px-2 py-2 text-left">Tanggal</th>
+                      <th className="px-2 py-2 text-left">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...Array(5)].map((_, i) => (
+                      <tr key={i} className="border-b">
+                        <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                        <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                        <td className="px-2 py-2"><Skeleton className="h-4 w-20" /></td>
+                        <td className="px-2 py-2"><Skeleton className="h-4 w-24" /></td>
+                        <td className="px-2 py-2"><Skeleton className="h-4 w-20" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -295,7 +366,9 @@ export default function DashboardAdminPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{statistik.totalSantri}</div>
+              <div className="text-2xl font-bold truncate max-w-full overflow-hidden whitespace-nowrap">
+                {statistik.totalSantri}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Jumlah santri aktif
               </p>
@@ -307,7 +380,7 @@ export default function DashboardAdminPage() {
               <Receipt className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold truncate max-w-full overflow-hidden whitespace-nowrap">
                 {new Intl.NumberFormat("id-ID", {
                   style: "currency",
                   currency: "IDR",
@@ -324,7 +397,7 @@ export default function DashboardAdminPage() {
               <CheckCircle2 className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500">
+              <div className="text-2xl font-bold text-green-500 truncate max-w-full overflow-hidden whitespace-nowrap">
                 {new Intl.NumberFormat("id-ID", {
                   style: "currency",
                   currency: "IDR",
@@ -341,7 +414,7 @@ export default function DashboardAdminPage() {
               <Clock className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-500">
+              <div className="text-2xl font-bold text-yellow-500 truncate max-w-full overflow-hidden whitespace-nowrap">
                 {new Intl.NumberFormat("id-ID", {
                   style: "currency",
                   currency: "IDR",
@@ -358,7 +431,7 @@ export default function DashboardAdminPage() {
               <AlertCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-500">
+              <div className="text-2xl font-bold text-red-500 truncate max-w-full overflow-hidden whitespace-nowrap">
                 {new Intl.NumberFormat("id-ID", {
                   style: "currency",
                   currency: "IDR",

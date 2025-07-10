@@ -39,6 +39,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useTheme } from "next-themes";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PengaturanResponse {
   data: {
@@ -166,10 +167,79 @@ export default function PengaturanPage() {
 
   if (loading || isLoadingPengaturan) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Memuat data...</p>
+      <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+        <header className="flex h-14 shrink-0 items-center justify-between w-full">
+          <div className="flex items-center gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0">
+                <AppSidebar />
+              </SheetContent>
+            </Sheet>
+            <Separator orientation="vertical" className="h-8 hidden md:block" />
+            <div className="flex flex-col">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>Pengaturan</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+              <h2 className="text-3xl font-bold tracking-tight">Pengaturan</h2>
+            </div>
+          </div>
+        </header>
+        <div className="flex-1 space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pengaturan Notifikasi</CardTitle>
+                <CardDescription>
+                  Atur preferensi notifikasi untuk akun admin Anda
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6 py-6">
+                  <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <Skeleton className="h-4 w-32 mb-2" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                    <Skeleton className="h-6 w-12 rounded-full" />
+                  </div>
+                  <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <Skeleton className="h-4 w-32 mb-2" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                    <Skeleton className="h-6 w-12 rounded-full" />
+                  </div>
+                  <Skeleton className="h-10 w-full rounded-md mt-4" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Ganti Password</CardTitle>
+                <CardDescription>
+                  Perbarui password akun admin Anda
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 py-6">
+                  <Skeleton className="h-10 w-full rounded-md" />
+                  <Skeleton className="h-10 w-full rounded-md" />
+                  <Skeleton className="h-10 w-full rounded-md" />
+                  <Skeleton className="h-10 w-full rounded-md mt-4" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     );
@@ -363,7 +433,7 @@ export default function PengaturanPage() {
             <CardHeader>
               <CardTitle>Informasi Sistem</CardTitle>
               <CardDescription>
-                Informasi tentang sistem SantriPay
+                Informasi tentang sistem DU Pay
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -382,7 +452,7 @@ export default function PengaturanPage() {
                 <div>
                   <p className="text-sm font-medium">Deskripsi</p>
                   <p className="text-sm text-muted-foreground">
-                    SantriPay adalah sistem manajemen pembayaran pesantren yang membantu mengelola tagihan dan pembayaran santri secara efisien.
+                    DUPay adalah sistem manajemen pembayaran pada pesantren Darul 'Ulum Majenang yang membantu mengelola tagihan dan pembayaran santri secara efisien.
                   </p>
                 </div>
               </div>

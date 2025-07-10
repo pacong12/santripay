@@ -82,6 +82,12 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import { ExportButtons } from "@/components/ui/export-buttons";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Tagihan {
   id: string;
@@ -558,7 +564,144 @@ export default function TagihanPage() {
     }
   };
 
-  if (isLoadingTagihan || isLoadingSantri || isLoadingJenisTagihan || isLoadingKelas) return <div>Memuat data...</div>;
+  function exportExcel(data: Tagihan[]) {
+    const ws = XLSX.utils.json_to_sheet(
+      data.map((row) => ({
+        Santri: row.santri?.name || "-",
+        Kelas: row.santri?.kelas?.name || "-",
+        "Jenis Tagihan": row.jenisTagihan?.name || "-",
+        Jumlah: row.amount,
+        "Jatuh Tempo": row.dueDate,
+        Status:
+          row.status === "overdue"
+            ? "Terlambat"
+            : row.status === "paid"
+            ? "Lunas"
+            : "Menunggu",
+        "Tahun Ajaran": row.tahunAjaran?.name || "-",
+        Deskripsi: row.description || "-",
+      }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Tagihan");
+    XLSX.writeFile(wb, "tagihan.xlsx");
+  }
+
+  function exportPDF(data: Tagihan[]) {
+    const doc = new jsPDF();
+    // @ts-ignore
+    doc.autoTable({
+      head: [[
+        "Santri",
+        "Kelas",
+        "Jenis Tagihan",
+        "Jumlah",
+        "Jatuh Tempo",
+        "Status",
+        "Tahun Ajaran",
+        "Deskripsi",
+      ]],
+      body: data.map((row) => [
+        row.santri?.name || "-",
+        row.santri?.kelas?.name || "-",
+        row.jenisTagihan?.name || "-",
+        row.amount,
+        row.dueDate,
+        row.status === "overdue"
+          ? "Terlambat"
+          : row.status === "paid"
+          ? "Lunas"
+          : "Menunggu",
+        row.tahunAjaran?.name || "-",
+        row.description || "-",
+      ]),
+    });
+    doc.save("tagihan.pdf");
+  }
+
+  if (isLoadingTagihan || isLoadingSantri || isLoadingJenisTagihan || isLoadingKelas) return (
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0">
+              <AppSidebar />
+            </SheetContent>
+          </Sheet>
+          <Separator orientation="vertical" className="h-8 hidden md:block" />
+          <div className="flex flex-col">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Tagihan</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <h2 className="text-3xl font-bold tracking-tight">Tagihan</h2>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button disabled variant="secondary">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Tagihan Massal
+          </Button>
+          <Button disabled>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Tambah Tagihan
+          </Button>
+        </div>
+      </header>
+      <div className="flex-1 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center py-4 gap-2">
+                <Skeleton className="h-10 w-64 max-w-sm" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-2 text-left">Santri</th>
+                    <th className="px-2 py-2 text-left">Jenis Tagihan</th>
+                    <th className="px-2 py-2 text-left">Jumlah</th>
+                    <th className="px-2 py-2 text-left">Jatuh Tempo</th>
+                    <th className="px-2 py-2 text-left">Tahun Ajaran</th>
+                    <th className="px-2 py-2 text-left">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...Array(5)].map((_, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-24" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-8 w-20" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
   if (errorTagihan || errorSantri || errorJenisTagihan || errorKelas) return <div>Terjadi kesalahan saat memuat data</div>;
 
   return (
@@ -607,7 +750,7 @@ export default function TagihanPage() {
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center py-4">
+              <div className="flex items-center py-4 gap-2">
                 <Input
                   placeholder="Filter tagihan..."
                   value={(table.getColumn("santri")?.getFilterValue() as string) ?? ""}
@@ -615,6 +758,34 @@ export default function TagihanPage() {
                     table.getColumn("santri")?.setFilterValue(event.target.value)
                   }
                   className="max-w-sm"
+                />
+                <ExportButtons
+                  data={table.getFilteredRowModel().rows.map((r) => ({
+                    Santri: r.original.santri?.name || "-",
+                    Kelas: r.original.santri?.kelas?.name || "-",
+                    "Jenis Tagihan": r.original.jenisTagihan?.name || "-",
+                    Jumlah: r.original.amount,
+                    "Jatuh Tempo": r.original.dueDate,
+                    Status:
+                      r.original.status === "overdue"
+                        ? "Terlambat"
+                        : r.original.status === "paid"
+                        ? "Lunas"
+                        : "Menunggu",
+                    "Tahun Ajaran": r.original.tahunAjaran?.name || "-",
+                    Deskripsi: r.original.description || "-",
+                  }))}
+                  columns={[
+                    { header: "Santri", accessor: "Santri" },
+                    { header: "Kelas", accessor: "Kelas" },
+                    { header: "Jenis Tagihan", accessor: "Jenis Tagihan" },
+                    { header: "Jumlah", accessor: "Jumlah" },
+                    { header: "Jatuh Tempo", accessor: "Jatuh Tempo" },
+                    { header: "Status", accessor: "Status" },
+                    { header: "Tahun Ajaran", accessor: "Tahun Ajaran" },
+                    { header: "Deskripsi", accessor: "Deskripsi" },
+                  ]}
+                  filename="tagihan"
                 />
               </div>
             </div>
@@ -916,84 +1087,86 @@ export default function TagihanPage() {
 
         <Dialog open={!!showingDetailTagihan} onOpenChange={() => setShowingDetailTagihan(null)}>
           <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Detail Tagihan</DialogTitle>
-              <DialogDescription>
-                Informasi lengkap mengenai tagihan.
-              </DialogDescription>
-            </DialogHeader>
-            {showingDetailTagihan && (
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Santri</div>
-                  <div className="col-span-3">
-                    <div className="font-medium">
-                      {showingDetailTagihan.santri?.name || "-"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {showingDetailTagihan.santri?.kelas?.name || "-"} 
-                      {showingDetailTagihan.santri?.kelas?.level ? 
-                       ` (${showingDetailTagihan.santri.kelas.level})` : ""}
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Jenis Tagihan</div>
-                  <div className="col-span-3">
-                    {showingDetailTagihan.jenisTagihan?.name || "-"}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Jumlah</div>
-                  <div className="col-span-3">
-                    {new Intl.NumberFormat("id-ID", {
-                      style: "currency",
-                      currency: "IDR",
-                    }).format(showingDetailTagihan.amount)}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Status</div>
-                  <div className="col-span-3">
-                    <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      showingDetailTagihan.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                      showingDetailTagihan.status === "paid" ? "bg-green-100 text-green-800" :
-                      "bg-red-100 text-red-800"
-                    }`}>
-                      {showingDetailTagihan.status === "pending" ? "Menunggu" :
-                       showingDetailTagihan.status === "paid" ? "Lunas" :
-                       "Terlambat"}
+            <ScrollArea className="max-h-[70vh]">
+              <DialogHeader>
+                <DialogTitle>Detail Tagihan</DialogTitle>
+                <DialogDescription>
+                  Informasi lengkap mengenai tagihan.
+                </DialogDescription>
+              </DialogHeader>
+              {showingDetailTagihan && (
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                    <div className="text-right font-medium">Santri</div>
+                    <div className="col-span-3">
+                      <div className="font-medium">
+                        {showingDetailTagihan.santri?.name || "-"}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {showingDetailTagihan.santri?.kelas?.name || "-"} 
+                        {showingDetailTagihan.santri?.kelas?.level ? 
+                         ` (${showingDetailTagihan.santri.kelas.level})` : ""}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Jatuh Tempo</div>
-                  <div className="col-span-3">
-                    {new Date(showingDetailTagihan.dueDate).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                  <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                    <div className="text-right font-medium">Jenis Tagihan</div>
+                    <div className="col-span-3">
+                      {showingDetailTagihan.jenisTagihan?.name || "-"}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                    <div className="text-right font-medium">Jumlah</div>
+                    <div className="col-span-3">
+                      {new Intl.NumberFormat("id-ID", {
+                        style: "currency",
+                        currency: "IDR",
+                      }).format(showingDetailTagihan.amount)}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                    <div className="text-right font-medium">Status</div>
+                    <div className="col-span-3">
+                      <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        showingDetailTagihan.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                        showingDetailTagihan.status === "paid" ? "bg-green-100 text-green-800" :
+                        "bg-red-100 text-red-800"
+                      }`}>
+                        {showingDetailTagihan.status === "pending" ? "Menunggu" :
+                         showingDetailTagihan.status === "paid" ? "Lunas" :
+                         "Terlambat"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                    <div className="text-right font-medium">Jatuh Tempo</div>
+                    <div className="col-span-3">
+                      {new Date(showingDetailTagihan.dueDate).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                    <div className="text-right font-medium">Tahun Ajaran</div>
+                    <div className="col-span-3">{showingDetailTagihan.tahunAjaran?.name || "-"}</div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <div className="text-right font-medium">Deskripsi</div>
+                    <div className="col-span-3">{showingDetailTagihan.description || "-"}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Tahun Ajaran</div>
-                  <div className="col-span-3">{showingDetailTagihan.tahunAjaran?.name || "-"}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <div className="text-right font-medium">Deskripsi</div>
-                  <div className="col-span-3">{showingDetailTagihan.description || "-"}</div>
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setEditingTagihan(showingDetailTagihan);
-                setIsDialogOpen(true);
-                setShowingDetailTagihan(null);
-              }}>Edit</Button>
-              <Button onClick={() => setShowingDetailTagihan(null)}>Tutup</Button>
-            </DialogFooter>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setEditingTagihan(showingDetailTagihan);
+                  setIsDialogOpen(true);
+                  setShowingDetailTagihan(null);
+                }}>Edit</Button>
+                <Button onClick={() => setShowingDetailTagihan(null)}>Tutup</Button>
+              </DialogFooter>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
 
@@ -1039,7 +1212,7 @@ export default function TagihanPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {kelasData?.map((kelas: any) => (
+                          {kelasData?.filter((kelas: any) => kelas.tahunAjaran?.aktif).map((kelas: any) => (
                             <SelectItem key={kelas.id} value={kelas.id}>
                               {kelas.name} {kelas.level ? `(${kelas.level})` : ""}
                             </SelectItem>

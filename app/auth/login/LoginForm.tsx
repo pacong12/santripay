@@ -22,6 +22,7 @@ import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Eye, EyeOff, Lock, User } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import Image from 'next/image';
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username harus diisi"),
@@ -57,36 +58,36 @@ export default function LoginForm() {
 
       if (result?.error) {
         toast.error(result.error);
+        setLoading(false);
         return;
       }
 
       if (result?.ok) {
         toast.success("Login berhasil!");
-        router.push(callbackUrl);
-        router.refresh();
+        await router.push(callbackUrl);
+        await router.refresh();
+        // setLoading(false); // Tidak perlu, karena halaman akan berpindah
+        return;
       }
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Terjadi kesalahan saat login");
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
+    <div className="min-h-screen flex items-center justify-center via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
       <div className="absolute top-4 right-4">
         <ModeToggle />
       </div>
-      <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+      <Card className="w-full max-w-md shadow-xl border-0  backdrop-blur-sm">
         <CardHeader className="space-y-1 pb-4">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <Lock className="w-6 h-6 text-white" />
-            </div>
+            <Image src="/favicon.ico" alt="DUPay Logo" width={48} height={48} className="rounded-lg" />
           </div>
-          <CardTitle className="text-2xl font-bold text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Selamat Datang
+          <CardTitle className="text-2xl font-bold text-center ">
+            Selamat Datang DUPay
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground">
             Masuk ke akun Anda untuk melanjutkan
@@ -108,12 +109,12 @@ export default function LoginForm() {
                     name="username"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium">Username</FormLabel>
+                        <FormLabel className="text-sm font-medium">NIS / Username</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                             <Input 
-                              placeholder="Masukkan username" 
+                              placeholder="Masukkan NIS atau username" 
                               {...field} 
                               className="pl-10 bg-white/50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400"
                             />
@@ -159,7 +160,7 @@ export default function LoginForm() {
                   />
                   <Button 
                     type="submit" 
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium py-2.5 transition-all duration-200 transform hover:scale-[1.02]" 
+                    className="w-full  font-medium py-2.5 transition-all duration-200 transform hover:scale-[1.02]" 
                     disabled={loading}
                   >
                     {loading ? (

@@ -29,6 +29,15 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Santri {
   id: string;
@@ -45,6 +54,7 @@ interface Kelas {
   id: string;
   name: string;
   level?: string;
+  tahunAjaran?: { id: string; name: string; aktif?: boolean };
 }
 
 // Tambahkan interface untuk memperluas Santri dengan total tagihan
@@ -62,6 +72,8 @@ export default function NaikKelasPage() {
   const [selectedSantri, setSelectedSantri] = useState<string[]>([]);
   const [kelasLama, setKelasLama] = useState<string | null>(null);
   const [kelasBaru, setKelasBaru] = useState<string | null>(null);
+  // State loading untuk data kelas
+  const [loadingKelas, setLoadingKelas] = useState(true);
 
   // Tambahkan fungsi untuk mengecek apakah semua santri dipilih
   const isAllSelected = santriList.length > 0 && 
@@ -100,6 +112,8 @@ export default function NaikKelasPage() {
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Gagal mengambil data");
         console.error(error);
+      } finally {
+        setLoadingKelas(false);
       }
     };
 
@@ -146,7 +160,8 @@ export default function NaikKelasPage() {
     // Filter kelas baru yang memiliki level lebih tinggi
     return kelasList.filter(k => 
       k.id !== kelasLamaId && 
-      (!kelasLama.level || !k.level || k.level > kelasLama.level)
+      (!kelasLama.level || !k.level || k.level > kelasLama.level) &&
+      k.tahunAjaran?.aktif
     );
   };
 
@@ -222,7 +237,7 @@ export default function NaikKelasPage() {
       toast.success(
         `Berhasil naik kelas`, 
         {
-          description: `${responseData.santriDinaikan} santri dipindahkan dari kelas ${kelasLamaInfo?.name || 'Lama'} ke kelas ${kelasBaruInfo?.name || 'Baru'}`,
+          description: `${responseData.santriDinaikan} santri dipindahkan dari kelas ${kelasLamaInfo?.name || 'Lama'}${kelasLamaInfo?.level ? ` (${kelasLamaInfo.level})` : ''}${kelasLamaInfo?.tahunAjaran ? ` - ${kelasLamaInfo.tahunAjaran.name}` : ''} ke kelas ${kelasBaruInfo?.name || 'Baru'}${kelasBaruInfo?.level ? ` (${kelasBaruInfo.level})` : ''}${kelasBaruInfo?.tahunAjaran ? ` - ${kelasBaruInfo.tahunAjaran.name}` : ''}`,
           duration: 5000
         }
       );
@@ -367,8 +382,100 @@ export default function NaikKelasPage() {
     );
   };
 
+  if (loadingKelas) return (
+    <div className="p-4 space-y-4">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin">Admin</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Naik Kelas</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <h2 className="text-3xl font-bold tracking-tight">Kenaikan Kelas</h2>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Kenaikan Kelas</CardTitle>
+              <CardDescription>
+                Pilih kelas lama, kelas baru, dan santri yang akan dinaikkan kelasnya.
+              </CardDescription>
+            </div>
+            <Button variant="outline" disabled>
+              <BookOpen className="mr-2 h-4 w-4" />
+              Riwayat Kenaikan Kelas
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex space-x-4 mb-4">
+            <div className="flex-1">
+              <Label>Kelas Lama</Label>
+              <Skeleton className="h-10 w-full rounded-md mt-2" />
+            </div>
+            <div className="flex-1">
+              <Label>Kelas Baru</Label>
+              <Skeleton className="h-10 w-full rounded-md mt-2" />
+            </div>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead><Skeleton className="h-4 w-4" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-32" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...Array(5)].map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className="flex justify-between items-center mt-4">
+            <div>
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <div className="flex space-x-2">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-32" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   return (
     <div className="p-4 space-y-4">
+      {/* Breadcrumb shadcn */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin">Admin</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Naik Kelas</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <h2 className="text-3xl font-bold tracking-tight">Kenaikan Kelas</h2>
+      {/* Card utama */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -388,7 +495,7 @@ export default function NaikKelasPage() {
         </CardHeader>
         <CardContent>
           <div className="flex space-x-4 mb-4">
-            <div className="flex-1">
+            <div className="flex-1 ">
               <Label>Kelas Lama</Label>
               <Select 
                 value={kelasLama || ""} 
@@ -407,9 +514,9 @@ export default function NaikKelasPage() {
                   <SelectValue placeholder="Pilih Kelas Lama" />
                 </SelectTrigger>
                 <SelectContent>
-                  {kelasList.map(kelas => (
+                  {kelasList.filter(kelas => kelas.tahunAjaran?.aktif).map(kelas => (
                     <SelectItem key={kelas.id} value={kelas.id}>
-                      {kelas.name} {kelas.level ? `(${kelas.level})` : ''}
+                      {kelas.name} {kelas.level ? `(${kelas.level})` : ''} {kelas.tahunAjaran ? `- ${kelas.tahunAjaran.name}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -428,7 +535,7 @@ export default function NaikKelasPage() {
                 <SelectContent>
                   {filterKelasBaru(kelasLama).map(kelas => (
                     <SelectItem key={kelas.id} value={kelas.id}>
-                      {kelas.name} {kelas.level ? `(${kelas.level})` : ''}
+                      {kelas.name} {kelas.level ? `(${kelas.level})` : ''} {kelas.tahunAjaran ? `- ${kelas.tahunAjaran.name}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

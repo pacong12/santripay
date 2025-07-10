@@ -69,6 +69,8 @@ import {
 } from "@/components/ui/form";
 import { toast } from "sonner";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface JenisTagihan {
   id: string;
@@ -347,7 +349,81 @@ export default function JenisTagihanPage() {
     setShowingDetailJenisTagihan(jenisTagihan);
   };
 
-  if (isLoadingJenisTagihan) return <div>Memuat jenis tagihan...</div>;
+  if (isLoadingJenisTagihan) return (
+    <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
+      <header className="flex h-14 shrink-0 items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0">
+              <AppSidebar />
+            </SheetContent>
+          </Sheet>
+          <Separator orientation="vertical" className="h-8 hidden md:block" />
+          <div className="flex flex-col">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/admin/dashboard">Dashboard</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Jenis Tagihan</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <h2 className="text-3xl font-bold tracking-tight">Jenis Tagihan</h2>
+          </div>
+        </div>
+        <Button disabled>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Tambah Jenis Tagihan
+        </Button>
+      </header>
+      <div className="flex-1 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center py-4">
+                <Skeleton className="h-10 w-64 max-w-sm" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-2 text-left">No</th>
+                    <th className="px-2 py-2 text-left">Nama</th>
+                    <th className="px-2 py-2 text-left">Nominal</th>
+                    <th className="px-2 py-2 text-left">Deskripsi</th>
+                    <th className="px-2 py-2 text-left">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...Array(5)].map((_, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-8" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-8 w-20" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
   if (errorJenisTagihan) return <div>Terjadi kesalahan: {errorJenisTagihan.message}</div>;
 
   return (
@@ -476,141 +552,147 @@ export default function JenisTagihanPage() {
 
         <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingJenisTagihan ? "Edit Jenis Tagihan" : "Tambah Jenis Tagihan"}
-              </DialogTitle>
-              <DialogDescription>
-                {editingJenisTagihan
-                    ? "Ubah informasi jenis tagihan yang ada"
-                    : "Tambahkan jenis tagihan baru ke sistem"}
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nama Jenis Tagihan</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Masukkan nama jenis tagihan" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Jumlah</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="Masukkan jumlah"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Deskripsi</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Masukkan deskripsi (opsional)" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCloseDialog}
-                  >
-                    Batal
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={addJenisTagihanMutation.isPending || updateJenisTagihanMutation.isPending}
-                  >
-                    {editingJenisTagihan ? "Simpan Perubahan" : "Tambah"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
+            <ScrollArea className="max-h-[70vh]">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingJenisTagihan ? "Edit Jenis Tagihan" : "Tambah Jenis Tagihan"}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingJenisTagihan
+                      ? "Ubah informasi jenis tagihan yang ada"
+                      : "Tambahkan jenis tagihan baru ke sistem"}
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nama Jenis Tagihan</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Masukkan nama jenis tagihan" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Jumlah</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="Masukkan jumlah"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deskripsi</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Masukkan deskripsi (opsional)" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCloseDialog}
+                    >
+                      Batal
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={addJenisTagihanMutation.isPending || updateJenisTagihanMutation.isPending}
+                    >
+                      {editingJenisTagihan ? "Simpan Perubahan" : "Tambah"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
 
         <Dialog open={!!showingDetailJenisTagihan} onOpenChange={() => setShowingDetailJenisTagihan(null)}>
           <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Detail Jenis Tagihan</DialogTitle>
-              <DialogDescription>
-                Informasi lengkap mengenai jenis tagihan.
-              </DialogDescription>
-            </DialogHeader>
-            {showingDetailJenisTagihan && (
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Nama Jenis Tagihan</div>
-                  <div className="col-span-3">{showingDetailJenisTagihan.name}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4 mb-2">
-                  <div className="text-right font-medium">Jumlah Default</div>
-                  <div className="col-span-3">
-                    {new Intl.NumberFormat("id-ID", {
-                      style: "currency",
-                      currency: "IDR",
-                    }).format(showingDetailJenisTagihan.amount || 0)}
+            <ScrollArea className="max-h-[70vh]">
+              <DialogHeader>
+                <DialogTitle>Detail Jenis Tagihan</DialogTitle>
+                <DialogDescription>
+                  Informasi lengkap mengenai jenis tagihan.
+                </DialogDescription>
+              </DialogHeader>
+              {showingDetailJenisTagihan && (
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                    <div className="text-right font-medium">Nama Jenis Tagihan</div>
+                    <div className="col-span-3">{showingDetailJenisTagihan.name}</div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4 mb-2">
+                    <div className="text-right font-medium">Jumlah Default</div>
+                    <div className="col-span-3">
+                      {new Intl.NumberFormat("id-ID", {
+                        style: "currency",
+                        currency: "IDR",
+                      }).format(showingDetailJenisTagihan.amount || 0)}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <div className="text-right font-medium">Deskripsi</div>
+                    <div className="col-span-3">{showingDetailJenisTagihan.description || "-"}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <div className="text-right font-medium">Deskripsi</div>
-                  <div className="col-span-3">{showingDetailJenisTagihan.description || "-"}</div>
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setEditingJenisTagihan(showingDetailJenisTagihan);
-                setIsDialogOpen(true);
-                setShowingDetailJenisTagihan(null);
-              }}>Edit</Button>
-              <Button onClick={() => setShowingDetailJenisTagihan(null)}>Tutup</Button>
-            </DialogFooter>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setEditingJenisTagihan(showingDetailJenisTagihan);
+                  setIsDialogOpen(true);
+                  setShowingDetailJenisTagihan(null);
+                }}>Edit</Button>
+                <Button onClick={() => setShowingDetailJenisTagihan(null)}>Tutup</Button>
+              </DialogFooter>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
 
         <Dialog open={!!deletingJenisTagihanId} onOpenChange={() => setDeletingJenisTagihanId(null)}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Konfirmasi Hapus</DialogTitle>
-              <DialogDescription>
-                Apakah Anda yakin ingin menghapus jenis tagihan ini? Tindakan ini tidak dapat dibatalkan dan akan
-                memengaruhi tagihan yang terkait dengan jenis tagihan ini.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeletingJenisTagihanId(null)}>Batal</Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteConfirm}
-                disabled={deleteJenisTagihanMutation.isPending}
-              >
-                {deleteJenisTagihanMutation.isPending ? "Menghapus..." : "Hapus"}
-              </Button>
-            </DialogFooter>
+            <ScrollArea className="max-h-[70vh]">
+              <DialogHeader>
+                <DialogTitle>Konfirmasi Hapus</DialogTitle>
+                <DialogDescription>
+                  Apakah Anda yakin ingin menghapus jenis tagihan ini? Tindakan ini tidak dapat dibatalkan dan akan
+                  memengaruhi tagihan yang terkait dengan jenis tagihan ini.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeletingJenisTagihanId(null)}>Batal</Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteConfirm}
+                  disabled={deleteJenisTagihanMutation.isPending}
+                >
+                  {deleteJenisTagihanMutation.isPending ? "Menghapus..." : "Hapus"}
+                </Button>
+              </DialogFooter>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       </div>

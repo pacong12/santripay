@@ -10,6 +10,9 @@ const santriSchema = z.object({
   santriId: z.string().min(1, "ID Santri tidak boleh kosong"),
   kelasId: z.string().uuid("Pilih kelas yang valid"),
   phone: z.string().optional().transform(val => val === "" ? undefined : val),
+  namaBapak: z.string().optional(),
+  namaIbu: z.string().optional(),
+  alamat: z.string().optional(),
 });
 
 export async function GET() {
@@ -29,6 +32,9 @@ export async function GET() {
         name: true,
         santriId: true,
         phone: true,
+        namaBapak: true,
+        namaIbu: true,
+        alamat: true,
         user: {
           select: {
             id: true,
@@ -40,7 +46,13 @@ export async function GET() {
           select: {
             id: true,
             name: true,
-            level: true
+            level: true,
+            tahunAjaran: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
           }
         }
       },
@@ -100,6 +112,9 @@ export async function POST(req: Request) {
         santriId: validatedData.santriId,
         kelasId: validatedData.kelasId,
         phone: validatedData.phone,
+        namaBapak: validatedData.namaBapak,
+        namaIbu: validatedData.namaIbu,
+        alamat: validatedData.alamat,
       },
       include: {
         user: {
