@@ -4,18 +4,11 @@ import { NextRequestWithAuth } from "next-auth/middleware";
 import { jwtVerify } from "jose";
 
 export default async function middleware(request: NextRequestWithAuth) {
-<<<<<<< HEAD
-  // Izinkan request ke endpoint callback Midtrans tanpa autentikasi
-  if (request.nextUrl.pathname.startsWith("/api/pembayaran/midtrans-callback")) {
-    return NextResponse.next();
-  }
 
-=======
     // Izinkan request ke endpoint callback Midtrans tanpa autentikasi
   if (request.nextUrl.pathname.startsWith("/api/pembayaran/midtrans-callback")) {
     return NextResponse.next();
   }
->>>>>>> 27f21abe73e30d30008493e865c4e339441bd4e0
   // Izinkan request ke NextAuth
   if (request.nextUrl.pathname.startsWith("/api/auth")) {
     return NextResponse.next();
