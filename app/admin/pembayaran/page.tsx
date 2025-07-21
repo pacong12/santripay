@@ -265,7 +265,7 @@ export default function PembayaranPage() {
                   }).map((item) => ({
                   Santri: item.santri.name,
                   Kelas: item.santri.kelas.name,
-                  "Jenis Tagihan": item.tagihan.jenisTagihan.name,
+                  "Jenis Tagihan": item.tagihan?.jenisTagihan?.name || "-",
                   Jumlah: item.amount,
                   Tanggal: item.paymentDate,
                   Status: item.status === "pending" ? "Menunggu" : item.status === "approved" ? "Disetujui" : item.status === "rejected" ? "Ditolak" : item.status,
@@ -338,7 +338,7 @@ export default function PembayaranPage() {
                       <TableRow key={item.id}>
                         <TableCell>{item.santri.name}</TableCell>
                         <TableCell>{item.santri.kelas.name}</TableCell>
-                        <TableCell>{item.tagihan.jenisTagihan.name}</TableCell>
+                        <TableCell>{item.tagihan?.jenisTagihan?.name || "-"}</TableCell>
                         <TableCell>
                           {new Intl.NumberFormat("id-ID", {
                             style: "currency",
@@ -442,7 +442,7 @@ export default function PembayaranPage() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4 mb-2">
                   <div className="text-right font-medium">Jenis Tagihan</div>
-                  <div className="col-span-3">{showDetail.tagihan.jenisTagihan.name}</div>
+                  <div className="col-span-3">{showDetail.tagihan?.jenisTagihan?.name || "-"}</div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4 mb-2">
                   <div className="text-right font-medium">Jumlah</div>

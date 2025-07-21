@@ -7,10 +7,12 @@ import {
   LayoutDashboard,
   School,
   Settings2,
+  Book,
   Users,
   Bell,
   ChevronsUpDown,
   type LucideIcon,
+  Calendar,
 } from "lucide-react"
 
 import {
@@ -64,7 +66,7 @@ export function NavMain() {
     {
       title: "Tahun Ajaran",
       url: "/admin/tahun-ajaran",
-      icon: School,
+      icon: Calendar,
       isActive: pathname.startsWith("/admin/tahun-ajaran"),
     },
     {
@@ -86,6 +88,12 @@ export function NavMain() {
       url: "/admin/transaksi",
       icon: BarChart3,
       isActive: pathname.startsWith("/admin/transaksi"),
+    },
+    {
+    title: "laporan",
+    url: "/admin/laporan",
+    icon: Book,
+    isActive: pathname.startsWith("/admin/laporan"),
     },
     {
       title: "Naik Kelas",

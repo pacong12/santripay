@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Menu, MoreHorizontal } from "lucide-react";
+import { PlusCircle, Menu, MoreHorizontal, Upload, Download, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "@/components/admin/app-sidebar";
@@ -140,6 +140,15 @@ export default function SantriPage() {
   const [kelasAktif, setKelasAktif] = React.useState<Kelas[]>([]);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [santriToDelete, setSantriToDelete] = React.useState<string | null>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
+  const [previewing, setPreviewing] = React.useState(false);
+  const [showPreview, setShowPreview] = React.useState(false);
+  const [previewData, setPreviewData] = React.useState<any>(null);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [downloadingSample, setDownloadingSample] = React.useState(false);
+  const [downloadingSampleExcel, setDownloadingSampleExcel] = React.useState(false);
 
   const queryClient = useQueryClient();
 
@@ -521,6 +530,103 @@ export default function SantriPage() {
     setShowingDetailSantri(santri);
   };
 
+  // Fungsi untuk handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setShowPreview(false);
+      setPreviewData(null);
+    }
+  };
+
+  // Fungsi untuk preview file
+  const handlePreviewFile = async () => {
+    if (!selectedFile) return;
+    
+    setPreviewing(true);
+    try {
+      let base64Data: string;
+      
+      if (selectedFile.name.toLowerCase().endsWith('.csv')) {
+        // For CSV files, read as text with proper encoding
+        const text = await selectedFile.text();
+        console.log("CSV text sample:", text.substring(0, 200));
+        base64Data = btoa(text);
+      } else {
+        // For Excel files, read as ArrayBuffer
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        base64Data = btoa(String.fromCharCode(...Array.from(new Uint8Array(arrayBuffer))));
+      }
+      
+      console.log("File name:", selectedFile.name);
+      console.log("Base64 data length:", base64Data.length);
+      
+      const res = await fetch(`/api/santri/import?fileData=${encodeURIComponent(base64Data)}&fileName=${encodeURIComponent(selectedFile.name)}`, {
+        method: "GET",
+      });
+      const result = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(result.message || "Gagal preview data");
+      }
+      
+      setPreviewData(result);
+      setShowPreview(true);
+    } catch (error: any) {
+      console.error("Preview error:", error);
+      toast.error(error?.message || "Gagal preview data");
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  // Fungsi untuk handle import file
+  const handleImportFile = async () => {
+    if (!selectedFile) return;
+    
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      const res = await fetch("/api/santri/import", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.message || "Gagal import data");
+      }
+      toast.success("Data santri berhasil diimport");
+      queryClient.invalidateQueries({ queryKey: ["santri"] });
+      setIsImportDialogOpen(false);
+      setSelectedFile(null);
+      setShowPreview(false);
+      setPreviewData(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Gagal import data");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // Fungsi untuk menghapus file yang dipilih
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setShowPreview(false);
+    setPreviewData(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Fungsi untuk reset import dialog
+  const handleCloseImportDialog = () => {
+    setIsImportDialogOpen(false);
+    setSelectedFile(null);
+    setShowPreview(false);
+    setPreviewData(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   return (
     <div className="flex flex-col flex-1 gap-4 p-4 pt-0 mt-6 max-w-[1400px] mx-auto w-full pb-8">
       <header className="flex h-14 shrink-0 items-center justify-between w-full">
@@ -552,10 +658,16 @@ export default function SantriPage() {
             <h2 className="text-3xl font-bold tracking-tight">Santri</h2>
           </div>
         </div>
-        <Button disabled={isLoadingSantri} onClick={handleAddSantri}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Tambah Santri
-        </Button>
+        <div className="flex gap-2">
+          <Button disabled={isLoadingSantri} onClick={handleAddSantri}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Tambah Santri
+          </Button>
+          <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import
+          </Button>
+        </div>
       </header>
       <div className="flex-1 space-y-6">
         <Card>
@@ -955,6 +1067,192 @@ export default function SantriPage() {
                 {deleteSantriMutation.isPending ? "Menghapus..." : "Hapus"}
               </Button>
             </DialogFooter>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isImportDialogOpen} onOpenChange={handleCloseImportDialog}>
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Import Data Santri</DialogTitle>
+            <DialogDescription>
+              Upload file CSV atau Excel untuk mengimport data santri. Anda dapat preview data terlebih dahulu sebelum melakukan import.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+          <div className="py-4">
+            <div className="mb-4 flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={downloadingSample}
+                onClick={async () => {
+                  setDownloadingSample(true);
+                  try {
+                    const a = document.createElement("a");
+                    a.href = "/contoh_santri.csv";
+                    a.download = "contoh_santri.csv";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  } finally {
+                    setTimeout(() => setDownloadingSample(false), 1000);
+                  }
+                }}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {downloadingSample ? "Mengunduh..." : "Unduh Contoh CSV"}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={downloadingSampleExcel}
+                onClick={async () => {
+                  setDownloadingSampleExcel(true);
+                  try {
+                    const a = document.createElement("a");
+                    a.href = "/contoh_santri.xlsx";
+                    a.download = "contoh_santri.xlsx";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  } finally {
+                    setTimeout(() => setDownloadingSampleExcel(false), 1000);
+                  }
+                }}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {downloadingSampleExcel ? "Mengunduh..." : "Unduh Contoh Excel"}
+              </Button>
+            </div>
+              
+              <div className="mb-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                  onChange={handleFileSelect}
+                  disabled={importing || previewing}
+                  className="mb-2"
+                />
+                {selectedFile && (
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-medium">File dipilih:</span> {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveFile}
+                      disabled={importing || previewing}
+                      className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+                    >
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Hapus file</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {selectedFile && !showPreview && (
+                <div className="mb-4">
+                  <Button
+                    onClick={handlePreviewFile}
+                    disabled={previewing}
+                    className="gap-2"
+                  >
+                    {previewing ? "Memproses..." : "Preview Data"}
+                  </Button>
+                </div>
+              )}
+
+              {showPreview && previewData && (
+                <div className="mb-4 space-y-4">
+                  <div className="p-4 border rounded-lg bg-muted/50">
+                    <h4 className="font-semibold mb-2">Ringkasan Preview</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Total Baris:</span> {previewData.totalRows}
+                      </div>
+                      <div>
+                        <span className="font-medium">Data Valid:</span> {previewData.success}
+                      </div>
+                      <div>
+                        <span className="font-medium">Error:</span> {previewData.failed}
+                      </div>
+                    </div>
+                  </div>
+
+                  {previewData.errors && previewData.errors.length > 0 && (
+                    <div className="p-4 border rounded-lg bg-red-50">
+                      <h4 className="font-semibold mb-2 text-red-700">Error yang Ditemukan</h4>
+                      <div className="space-y-1 text-sm text-red-600">
+                        {previewData.errors.map((error: any, index: number) => (
+                          <div key={index}>
+                            <span className="font-medium">Baris {error.row}:</span> {error.message}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {previewData.validData && previewData.validData.length > 0 && (
+                    <div className="p-4 border rounded-lg">
+                      <h4 className="font-semibold mb-2">Data Valid (Preview 20 baris pertama)</h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left p-2">Baris</th>
+                              <th className="text-left p-2">Nama</th>
+                              <th className="text-left p-2">Username</th>
+                              <th className="text-left p-2">Email</th>
+                              <th className="text-left p-2">Kelas</th>
+                              <th className="text-left p-2">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {previewData.validData.map((data: any, index: number) => (
+                              <tr
+                                key={index}
+                                className={`border-b ${data.duplicateType ? 'bg-red-100 text-red-700' : ''}`}
+                                title={data.duplicateType ? `Duplikat pada ${data.duplicateType}` : ''}
+                              >
+                                <td className="p-2">{data.rowNumber}</td>
+                                <td className="p-2">{data.name}</td>
+                                <td className="p-2">{data.username}</td>
+                                <td className="p-2">{data.email}</td>
+                                <td className="p-2">{data.kelas}</td>
+                                <td className="p-2 font-bold">
+                                  {data.duplicateType ? `Duplikat: ${data.duplicateType}` : 'Valid'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={handleCloseImportDialog} disabled={importing || previewing}>
+                Batal
+              </Button>
+                {selectedFile && previewData && previewData.success > 0 && (
+                  <Button 
+                    onClick={handleImportFile} 
+                    disabled={importing || previewing}
+                    className="gap-2"
+                  >
+                    {importing ? "Mengimport..." : "Import Data"}
+                  </Button>
+                )}
+            </div>
+          </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>

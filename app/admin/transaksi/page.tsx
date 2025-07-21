@@ -1159,11 +1159,7 @@ export default function TagihanPage() {
                 </div>
               )}
               <DialogFooter>
-                <Button variant="outline" onClick={() => {
-                  setEditingTagihan(showingDetailTagihan);
-                  setIsDialogOpen(true);
-                  setShowingDetailTagihan(null);
-                }}>Edit</Button>
+                
                 <Button onClick={() => setShowingDetailTagihan(null)}>Tutup</Button>
               </DialogFooter>
             </ScrollArea>

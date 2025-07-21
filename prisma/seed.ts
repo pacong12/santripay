@@ -1,7 +1,93 @@
 import { PrismaClient, Role, StatusTagihan, StatusTransaksi, JenisNotifikasi } from '@prisma/client';
 import bcrypt from "bcryptjs";
+import fs from 'fs';
+import path from 'path';
+import { parse } from 'csv-parse/sync';
 
 const prisma = new PrismaClient();
+
+interface SantriCSVRow {
+  username: string;
+  email: string;
+  password: string;
+  name: string;
+  santriId: string;
+  kelas: string;
+  tahunAjaran: string;
+  phone: string;
+  namaBapak: string;
+  namaIbu: string;
+  alamat: string;
+}
+
+async function importSantriFromCSV() {
+  const csvPath = path.join(__dirname, 'santri_kelas10.csv');
+  if (!fs.existsSync(csvPath)) {
+    console.log('File santri.csv tidak ditemukan, skip import santri dari CSV.');
+    return;
+  }
+  const csvContent = fs.readFileSync(csvPath, 'utf-8');
+  const records = parse(csvContent, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  }) as SantriCSVRow[];
+  for (const row of records) {
+    // Validasi duplikasi user/santri
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: row.username },
+          { email: row.email },
+        ],
+      },
+    });
+    const existingSantri = await prisma.santri.findFirst({
+      where: { santriId: row.santriId },
+    });
+    if (existingUser || existingSantri) {
+      console.log(`Lewati duplikat: ${row.username} / ${row.email} / ${row.santriId}`);
+      continue;
+    }
+    // Cari/buat tahun ajaran
+    let tahunAjaran = await prisma.tahunAjaran.findFirst({ where: { name: row.tahunAjaran } });
+    if (!tahunAjaran) {
+      tahunAjaran = await prisma.tahunAjaran.create({ data: { name: row.tahunAjaran, aktif: false } });
+    }
+    // Cari/buat kelas
+    let kelas = await prisma.kelas.findFirst({ where: { name: row.kelas, tahunAjaranId: tahunAjaran.id } });
+    if (!kelas) {
+      kelas = await prisma.kelas.create({ data: { name: row.kelas, tahunAjaranId: tahunAjaran.id } });
+    }
+    // Hash password
+    const passwordHash = await bcrypt.hash(row.password, 10);
+    // Buat user
+    const user = await prisma.user.create({
+      data: {
+        username: row.username,
+        email: row.email,
+        password: passwordHash,
+        role: Role.santri,
+        receiveAppNotifications: true,
+        receiveEmailNotifications: true,
+      },
+    });
+    // Buat santri
+    await prisma.santri.create({
+      data: {
+        userId: user.id,
+        name: row.name,
+        santriId: row.santriId,
+        kelasId: kelas.id,
+        phone: row.phone,
+        namaBapak: row.namaBapak,
+        namaIbu: row.namaIbu,
+        alamat: row.alamat,
+      },
+    });
+    console.log(`Santri ${row.name} (${row.santriId}) berhasil diimport.`);
+  }
+}
 
 async function main() {
   // Hapus data lama
@@ -338,6 +424,8 @@ async function main() {
       role: "santri",
     },
   });
+
+  await importSantriFromCSV();
 }
 
 main()

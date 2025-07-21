@@ -55,7 +55,7 @@ export const authOptions: NextAuthOptions = {
           if (santri) {
             user = await prisma.user.findUnique({
               where: { id: santri.userId }
-            });
+        });
           }
         }
 
